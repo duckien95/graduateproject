@@ -1,0 +1,28 @@
+	<% extend('layout/main.ejs') %>
+
+	<div class="col-sm-6 col-sm-offset-3">
+
+		<form action="/upload" method="POST" role="form" enctype="multipart/form-data">
+			<legend>UPLOAD FILE</legend>
+
+			<div class="form-group">
+				<label for=""></label>
+				<input type="file" name="avatar" class="form-control" value="" required="required" pattern="" title="">
+			</div>
+		
+		
+			<button type="submit" value="upload" class="btn btn-primary">Submit</button>
+		</form>
+
+	    <div class="well">
+            <h3 class="text-primary"><span class="fa"></span>Image Info</h3>
+
+            <p>
+                <strong>id</strong>: <%= img._id %><br>
+                <strong>File name</strong>: <%= img.fileName %><br>
+                <strong>File path</strong>: <%= img.filePath %><br>
+                <strong></strong><br>
+            </p>
+
+        </div>
+	</div>
