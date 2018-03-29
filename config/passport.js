@@ -4,6 +4,13 @@ var GoogleStrategy = require('passport-google-oauth').OAuth2Strategy;
 
 var User            = require('../app/models/User');
 var configAuth = require('./auth');
+var mysql = require('mysql');
+var bcrypt = require('bcrypt-nodejs');
+var dbconfig = require('./database.js');
+var connection = mysql.createConnection(dbconfig.connection);
+
+connection.query('USE ' + dbconfig.database);
+
 
 
 module.exports = function(passport) {
@@ -14,60 +21,30 @@ module.exports = function(passport) {
 	});
 
 	passport.deserializeUser(function(id, done){
-		User.findById(id, function(err, user){
-			done(err, user);
-		});
+		connection.query("SELECT * FROM users WHERE id = ? ",[id], function(err, rows){
+            done(err, rows[0]);
+        });
 	});
 
 
 	passport.use('local-signup', 
 
 		new LocalStrategy({
-			usernameField: 'email',
+			usernameField: 'username',
 			passwordField: 'password',
 			fullNameFiels: 'fullName',
 			passReqToCallback: true
 		},
 
-		function(req, email, password, done){
+		function(req, username, password, done){
 
 			 // console.log(JSON.stringify(req.body, null, 2));
 
-			process.nextTick(function(){
-
-				var emailIsValid = /^([\w-\.]+@([\w-]+\.)+[\w-]{2,4})?$/.test(email);
-				var phoneIsValid = /^(01[2689]|09|08)\d{8}/.test(req.body.phone);
+				// var emailIsValid = /^([\w-\.]+@([\w-]+\.)+[\w-]{2,4})?$/.test(username);
+				// var phoneIsValid = /^(01[2689]|09|08)\d{8}/.test(req.body.phone);
 
 				// if(emailIsValid && phoneIsValid){
 
-				// 	User.findOne({'local.username': email}, function(err, user){
-				// 		if(err)
-				// 			return done(err);
-				// 		if(user){
-				// 			// console.log("username exists");
-				// 			return done(null, false, req.flash('signupMessage', 'That email already taken'));
-				// 		} else {
-
-				// 			var newUser = new User();
-
-				// 			newUser.local.username = email;
-				// 			newUser.local.password = newUser.generateHash(password);
-				// 			newUser.local.fullName = req.body.fullName;
-				// 			newUser.local.phone = req.body.phone;
-
-				// 			// console.log(JSON.stringify(newUser.local.phone, null, 2));						
-
-
-				// 			newUser.save(function(err){
-				// 				if(err){
-				// 					console.log(JSON.stringify(err, null, 2));
-				// 					// throw err;
-				// 				}
-				// 				return done(null, newUser);
-				// 			})
-				// 			console.log("create success");
-				// 		}
-				// 	})
 				// }
 
 				// else {
@@ -84,140 +61,149 @@ module.exports = function(passport) {
 					
 				// }
 
-				User.findOne({'local.username': email}, function(err, user){
-					if(err)
-						return done(err);
-					if(user){
-						// console.log("username exists");
-						return done(null, false, req.flash('signupMessage', 'That email already taken'));
-					} else {
+			connection.query("SELECT * FROM users WHERE username = ?",[username], function(err, rows) {
 
-						var newUser = new User();
+				if (err)
+                	return done(err);
+                
+                if (rows.length) {
+                    return done(null, false, req.flash('signupMessage', 'Tên đăng nhập đã tồn tại.'));
+                } else {
+                    // if there is no user with that username
+                    // create the user
+                    var newUser = {
+                        username: username,
+                        password: bcrypt.hashSync(password, null, null)  // use the generateHash function in our user model
+                    };
 
-						newUser.local.username = email;
-						newUser.local.password = newUser.generateHash(password);
-						newUser.local.fullName = req.body.fullName;
-						newUser.local.phone = req.body.phone;
+                    var insertQuery = "INSERT INTO users ( username, password ) values (?,?)";
 
-						// console.log(JSON.stringify(newUser.local.phone, null, 2));						
+                    connection.query(insertQuery,[newUser.username, newUser.password],function(err, rows) {
 
+                        newUser.id = rows.insertId;
 
-						newUser.save(function(err){
-							if(err){
-								// console.log(JSON.stringify(err, null, 2));
-								for(items in err.errors){
-									var fieldName = items.substring(("local.").length);
-									return done(null, false, req.flash('signupMessage', err.errors[items].message ));
-									// console.log(JSON.stringify(err.errors[items], null, 2));
-								}
-								// throw err;
-							}
-							return done(null, newUser);
-						})
-						console.log("create success");
-					}
-				});
-
-			});
-	})
+                        return done(null, newUser);
+                    });
+                }
+			})
+		})
 	);
 
-	passport.use('local-login', new LocalStrategy({
-			usernameField: 'email',
+	passport.use('local-login', 
+
+		new LocalStrategy({
+			usernameField: 'username',
 			passwordField: 'password',
 			passReqToCallback: true
 		},
-		function(req, email, password, done){
-			process.nextTick(function(){
-				User.findOne({ 'local.username': email}, function(err, user){
 
-					if(err)
-						return done(err);
-					if(!user)
-						return done(null, false, req.flash('loginMessage', 'No User found'));
-					if(!user.validPassword(password)){
-						return done(null, false, req.flash('loginMessage', 'Invalid password'));
-					}
-					return done(null, user);
+		function(req, username, password, done){
 
-				});
-			});
+			connection.query("SELECT * FROM users WHERE username = ?",[username], function(err, rows){
+                if (err)
+                    return done(err);
+                if (!rows.length) {
+                    return done(null, false, req.flash('loginMessage', 'Không tồn tại tên đăng nhập')); // req.flash is the way to set flashdata using connect-flash
+                }
+
+                // if the user is found but the password is wrong
+                if (!bcrypt.compareSync(password, rows[0].password))
+                    return done(null, false, req.flash('loginMessage', 'Mât khẩu không đúng xin mời nhập lại')); // create the loginMessage and save it to session as flashdata
+
+                // all is well, return successful user
+                return done(null, rows[0]);
+            });		
 		}
 	));
 
 
-	passport.use(new FacebookStrategy({
-	    clientID: configAuth.facebookAuth.clientID,
-	    clientSecret: configAuth.facebookAuth.clientSecret,
-	    callbackURL: configAuth.facebookAuth.callbackURL
-	  },
-	  function(accessToken, refreshToken, profile, done) {
-	    	process.nextTick(function(){
-	    		User.findOne({'facebook.id': profile.id}, function(err, user){
+	passport.use(
+		new FacebookStrategy({
+	    	clientID: configAuth.facebookAuth.clientID,
+	    	clientSecret: configAuth.facebookAuth.clientSecret,
+	    	callbackURL: configAuth.facebookAuth.callbackURL
+			},
+	  		function(accessToken, refreshToken, profile, done) {
+	  			connection.query("SELECT * FROM users WHERE username = ?",[username], function(err, rows){
+
 	    			if(err)
 	    				return done(err);
-	    			if(user)
-	    				return done(null, user);
+	    			if(rows.length)
+	    				return done(null, rows[0]);
 	    			else {
-	    				var newUser = new User();
-	    				newUser.facebook.id = profile.id;
-	    				newUser.facebook.token = accessToken;
-	    				newUser.facebook.name = profile.name.givenName + ' ' + profile.name.familyName;
-	    				newUser.facebook.email = profile.emails[0].value;
 
-	    				newUser.save(function(err){
-	    					if(err)
-	    						throw err;
-	    					return done(null, newUser);
-	    				})
-	    				console.log(profile);
-	    			}
-	    		});
-	    	});
-	    }
+	    				var newUser = {
+                        	username: username,
+                        	password: bcrypt.hashSync(password, null, null)  // use the generateHash function in our user model
+	                    };
 
-	));
+	                    var insertQuery = "INSERT INTO users ( username, password ) values (?,?)";
 
-	passport.use(new GoogleStrategy({
-	    clientID: configAuth.googleAuth.clientID,
-	    clientSecret: configAuth.googleAuth.clientSecret,
-	    callbackURL: configAuth.googleAuth.callbackURL
-	  },
-	  function(accessToken, refreshToken, profile, done) {
-	    	process.nextTick(function(){
-	    		User.findOne({'google.id': profile.id}, function(err, user){
-	    			if(err)
-	    				return done(err);
-	    			if(user)
-	    				return done(null, user);
-	    			else {
-	    				var newUser = new User();
-	    				newUser.google.id = profile.id;
-	    				newUser.google.token = accessToken;
-	    				newUser.google.name = profile.displayName;
-	    				newUser.google.email = profile.emails[0].value;
+	                    connection.query(insertQuery,[newUser.username, newUser.password],function(err, rows) {
 
+	                        newUser.id = rows.insertId;
 
-	    				newUser.save(function(err){
-	    					console.log(JSON.stringify(newUser));
-	    					if(err){
-	    						console.log(JSON.stringify(err, null, 2));
+	                        return done(null, newUser);
+	                    });
+	    				// var newUser = new User();
+	    				// newUser.facebook.token = accessToken;
+	    				// newUser.facebook.name = profile.name.givenName + ' ' + profile.name.familyName;
+	    				// newUser.facebook.email = profile.emails[0].value;
 
-	    						// throw err;
-	    					}
-	    					return done(null, newUser);
-	    				})
+	    				// newUser.save(function(err){
+	    				// 	if(err)
+	    				// 		throw err;
+	    				// 	return done(null, newUser);
+	    				// })
 	    				// console.log(profile);
 	    			}
-	    		});
 	    	});
 	    }
 
 	));
 
 
-	
+	// GMAIL LOGIN 
+	passport.use(new GoogleStrategy({
+	    	clientID: configAuth.googleAuth.clientID,
+	    	clientSecret: configAuth.googleAuth.clientSecret,
+	    	callbackURL: configAuth.googleAuth.callbackURL
+	  	},
+	  	function(accessToken, refreshToken, profile, done) {
 
+	  		var username = profile.emails[0].value;
+			connection.query("SELECT * FROM users WHERE username = ?",[username], function(err, rows){
 
+				if(err)
+					return done(err);
+				if(rows.length)
+					return done(null, rows[0]);
+				else {
+
+					var newUser = {
+	                	username: username,
+	                	password: bcrypt.hashSync(null, null, null)  // use the generateHash function in our user model
+	                };
+
+	                var insertQuery = "INSERT INTO users ( username, password ) values (?,?)";
+
+	                connection.query(insertQuery,[newUser.username, newUser.password],function(err, rows) {
+
+	                    newUser.id = rows.insertId;
+	                    // console.log(JSON.stringify(err, null, 2));
+	                    // console.log(JSON.stringify(rows, null, 2));
+
+	                    return done(null, newUser);
+	                });
+
+					// newUser.google.id = profile.id;
+					// newUser.google.token = accessToken;
+					// newUser.google.name = profile.displayName;
+					// newUser.google.email = profile.emails[0].value;
+				}
+			});
+	    }
+
+	));
 
 };

@@ -11,7 +11,10 @@ module.exports = function(router, passport){
 		successRedirect: '/auth/profile',
 		failureRedirect: '/auth/login',
 		failureFlash: true
-	}));
+	}), function(req , res){
+		console.log("--------------------------------------------------------------------------------------");
+		console.log(JSON.stringify(req));
+	});
 
 	router.get('/signup', function(req, res){
 		res.render('signup.ejs', { message: req.flash('signupMessage') });
@@ -20,7 +23,7 @@ module.exports = function(router, passport){
 
 	router.post('/signup', 
 		passport.authenticate('local-signup', {
-			successRedirect: '/',
+			successRedirect: '/profile',
 			failureRedirect: '/auth/signup',
 			failureFlash: true
 		})

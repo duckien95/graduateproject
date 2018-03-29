@@ -1,3 +1,9 @@
 module.exports = {
-	'url'	: 'mongodb://127.0.0.1:27017/vietfood'
+	'connection': {
+        'host': 'localhost',
+        'user': 'root',
+        'password': '123456'
+    },
+	'database': 'foody',
+    // 'users_table': 'users'
 }
