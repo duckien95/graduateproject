@@ -1,0 +1,138 @@
+<!-- <script src="https://code.jquery.com/jquery-3.1.1.js"></script> -->
+<!-- <script src="https://code.jquery.com/jquery-1.10.2.js"></script>
+
+<script type="text/javascript">
+function displayVals() {
+  var singleValues = $( "#single" ).val();
+  var multipleValues = $( "#multiple" ).val() || [];
+  // When using jQuery 3:
+  // var multipleValues = $( "#multiple" ).val();
+  $( "p#pra" ).html( "<b>Single:</b> " + singleValues +
+    " <b>Multiple:</b> " + multipleValues.join( ", " ) );
+}
+ 
+$( "select" ).change( displayVals );
+displayVals();
+</script>
+<p id="pra"></p>
+ 
+<select id="single">
+  <option>Single</option>
+  <option>Single2</option>
+</select>
+ 
+<select id="multiple" multiple="multiple">
+  <option selected="selected">Multiple</option>
+  <option>Multiple2</option>
+  <option selected="selected">Multiple3</option>
+</select>
+
+<form action="/food/create" method="post" enctype="multipart/data" class="col-sm-10 offset-sm-1">
+
+	<div class="form-group row">
+		<label class="col-sm-2">Loại</label>
+		<div class="col-sm-10 row">
+			<div class="radio col-sm-2">
+				<label>
+					<input type="radio" name="foodType" id="foodType1" value="rice">
+					Cơm
+				</label>
+			</div>
+			<div class="radio col-sm-2">
+				<label>
+					<input type="radio" name="foodType" id="foodType1" value="bun">
+					Bún
+				</label>
+			</div>
+			<div class="radio col-sm-2">
+				<label>
+					<input type="radio" name="foodType" id="foodType1" value="pho">
+					Phở
+				</label>
+			</div>
+		</div>
+	</div>
+
+	<div class="form-group row">
+		<label for="name" class="col-sm-2 form-control-label">Tên món ăn</label>
+		<div class="col-sm-10">
+			<input type="text" class="form-control" id="name" placeholder="Nhập tên món ăn">
+		</div>
+	</div>
+	<div class="form-group row">
+		<label for="description" class="col-sm-2 form-control-label">Miêu tả</label>
+		<div class="col-sm-10">
+			<input type="text" class="form-control" id="description" placeholder="Miêu tả món ăn">
+		</div>
+	</div>
+
+	<div class="form-group row">
+		<label for="price" class="col-sm-2 form-control-label">Gía</label>
+		<div class="col-sm-10">
+			<input type="text" class="form-control" id="price" placeholder="Gía thành">
+		</div>
+	</div>
+
+	<div class="form-group row">
+		<label for="address" class="col-sm-2 form-control-label">Địa chỉ</label>
+		<div class="form-group row col-sm-10">
+			
+			<div class="form-group col-sm-4">
+
+				<select class="form-control" id="city">
+					<option value="-1">Tỉnh/Thành phố</option>
+				  	<% for(var i = 0; i < Object.keys(citylist).length; i++ ){ %>
+						<option value="<%= citylist[i].city_id %>"><%= citylist[i].city_name %></option>
+					<% } %>
+				</select>
+
+		  	</div>		
+		  	
+		  	<div class="form-group col-sm-4">
+		  		<%=  %>
+				<select class="form-control" id="district">
+					<option value="null">Quận/Huyện</option>
+
+
+				  	<% 	var id =  1 %>
+				  	<%	var districts = districtlist[id];
+				  		for(var i = 0; i < Object.keys(districts).length; i++ ){ %>
+						<option value="<%= districts[i].district_id %>"><%= districts[i].district_name %></option>
+					<% } %>
+				</select>
+		  	</div>		
+
+		  	<div class="form-group col-sm-4">
+
+				<select id="multiple" multiple="multiple">
+  <option selected="selected">Multiple</option>
+  <option>Multiple2</option>
+  <option selected="selected">Multiple3</option>
+</select>
+
+		  	</div>
+		</div>
+	</div>
+
+
+	<div class="form-group row">
+		<label class="col-sm-2">Checkbox</label>
+		<div class="col-sm-10">
+			<div class="checkbox">
+				<label>
+					<input type="checkbox"> Check me out
+				</label>
+			</div>
+		</div>
+	</div>
+	<div class="form-group row">
+		<div class="col-sm-offset-2 col-sm-10">
+			<button type="submit" class="btn btn-secondary">Sign in</button>
+		</div>
+	</div>
+</form>
+ -->
+
+
+
+

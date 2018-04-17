@@ -1,9 +1,16 @@
 const fs = require('fs');
 const readline = require('readline');
-const google = require('googleapis');
+const {google} = require('googleapis');
 const OAuth2Client = google.auth.OAuth2;
-// const OAuth2Client = google.auth;
-const SCOPES = ['https://www.googleapis.com/auth/drive.metadata.readonly'];
+const SCOPES = [
+  // 'https://www.googleapis.com/auth/drive.metadata.readonly',
+  'https://www.googleapis.com/auth/drive',
+  'https://www.googleapis.com/auth/drive.appfolder',
+  'https://www.googleapis.com/auth/drive.install',
+  'https://www.googleapis.com/auth/drive.metadata',
+  'https://www.googleapis.com/auth/drive.photos.readonly',
+];
+
 const TOKEN_PATH = 'credentials.json';
 
 // Load client secrets from a local file.
@@ -11,6 +18,8 @@ fs.readFile('client_secret.json', (err, content) => {
   if (err) return console.log('Error loading client secret file:', err);
   // Authorize a client with credentials, then call the Google Drive API.
   authorize(JSON.parse(content), listFiles);
+  // authorize(JSON.parse(content), addFile);
+  // authorize(JSON.parse(content), addFolder);
 });
 
 /**
@@ -20,10 +29,7 @@ fs.readFile('client_secret.json', (err, content) => {
  * @param {function} callback The callback to call with the authorized client.
  */
 function authorize(credentials, callback) {
-  // const {client_secret, client_id, redirect_uris} = credentials.installed;
-    const client_secret = credentials.installed.client_secret;
-  const client_id = credentials.installed.client_id;
-  const redirect_uris = credentials.installed.redirect_uris;
+  const {client_secret, client_id, redirect_uris} = credentials.installed;
   const oAuth2Client = new OAuth2Client(client_id, client_secret, redirect_uris[0]);
 
   // Check if we have previously stored a token.
@@ -74,7 +80,8 @@ function listFiles(auth) {
   drive.files.list({
     pageSize: 10,
     fields: 'nextPageToken, files(id, name)',
-  }, (err, data) => {
+  }, (err, {data}) => {
+    console.log(JSON.stringify(data, null, 2));
     if (err) return console.log('The API returned an error: ' + err);
     const files = data.files;
     if (files.length) {
@@ -87,3 +94,55 @@ function listFiles(auth) {
     }
   });
 }
+
+function addFile(auth){
+
+  const drive = google.drive({version: 'v3', auth});
+  var folderId = '1pJlKpiRzpjhplLr3sXMGkAxOkeEO_JPj';
+var fileMetadata = {
+  'name': 'photo.jpg',
+  parents: [folderId]
+};
+var media = {
+  mimeType: 'image/jpeg',
+  body: fs.createReadStream('photo.jpg')
+};
+drive.files.create({
+  resource: fileMetadata,
+  media: media,
+  fields: 'id'
+}, function (err, file) {
+  if (err) {
+    // Handle error
+    console.error(err);
+  } else {
+    console.log(file);
+    console.log('File Id: ', file.data.id);
+  }
+});
+
+}
+
+function addFolder(auth){
+    const drive = google.drive({version: 'v3', auth});
+  var fileMetadata = {
+  'name': 'FoodCloud',
+  'mimeType': 'application/vnd.google-apps.folder'
+};
+drive.files.create({
+  resource: fileMetadata,
+  fields: 'id'
+}, function (err, file) {
+  if (err) {
+    // Handle error
+    console.error(err);
+  } else {
+    console.log(file);
+    console.log('Folder Id: ', file.data.id);
+  }
+});
+}
+
+// https://drive.google.com/drive/folders/1vodQqz9St6sM89VqfAkUmU-8LGVCSQzv?usp=sharing
+// https://drive.google.com/drive/folders/1vodQqz9St6sM89VqfAkUmU-8LGVCSQzv?usp=sharing
+

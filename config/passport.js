@@ -2,18 +2,17 @@ var LocalStrategy = require('passport-local').Strategy;
 var FacebookStrategy = require('passport-facebook').Strategy;
 var GoogleStrategy = require('passport-google-oauth').OAuth2Strategy;
 
-var User            = require('../app/models/User');
 var configAuth = require('./auth');
-var mysql = require('mysql');
+// var mysql = require('mysql');
 var bcrypt = require('bcrypt-nodejs');
-var dbconfig = require('./database.js');
-var connection = mysql.createConnection(dbconfig.connection);
+// var dbconfig = require('./database.js');
+// var connection = mysql.createConnection(dbconfig.connection);
 
-connection.query('USE ' + dbconfig.database);
+// connection.query('USE ' + dbconfig.database);
 
 
 
-module.exports = function(passport) {
+module.exports = function(connection, passport) {
 
 
 	passport.serializeUser(function(user, done){

@@ -1,5 +1,4 @@
-var User = require('./models/user');
-var Image = require('./models/Image');
+
 
 module.exports = function(app, passport, upload){
 

@@ -5,22 +5,27 @@
 		<form action="/upload" method="POST" role="form" enctype="multipart/form-data">
 			<legend>UPLOAD FILE</legend>
 
-			<div class="form-group">
-				<label for=""></label>
-				<input type="file" name="avatar" class="form-control" value="" required="required" pattern="" title="">
-			</div>
+<!-- 			<div class="form-group">
+				<label for="avatar"></label>
+				<input type="file" id="fileUpload" name="avatar" class="form-control" required="required" >
+				<input id="upload-input" type="file" name="uploads[]" class="form-control"  multiple="multiple">
+			</div> -->
+
+			 <input type="file" name="uploadedImages" value="uploading_img" multiple>
+		  <!-- <input type="submit" value="uploading_img"> -->
 		
 		
 			<button type="submit" value="upload" class="btn btn-primary">Submit</button>
 		</form>
 
+
 	    <div class="well">
             <h3 class="text-primary"><span class="fa"></span>Image Info</h3>
 
             <p>
-                <strong>id</strong>: <%= img._id %><br>
-                <strong>File name</strong>: <%= img.fileName %><br>
-                <strong>File path</strong>: <%= img.filePath %><br>
+                <strong>id</strong>:<br>
+                <strong>File name</strong>:<br>
+                <strong>File path</strong>:<br>
                 <strong></strong><br>
             </p>
 

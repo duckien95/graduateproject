@@ -12,7 +12,7 @@
 }
 
 .mainColor {
-    background-color: #f73fa5;
+    background-color: #528e5c;
 }
 
 .navbar {
@@ -24,6 +24,10 @@
 
 .mainColor, .navbar-light .navbar-nav .nav-link {
     color: #fff !important;
+}
+
+.mainContent {
+  margin-top: 180px;
 }
 
 @import url('https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900');
