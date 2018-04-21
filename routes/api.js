@@ -1,7 +1,16 @@
+const GOOGLE_MAP_API_KEY = "AIzaSyDLV4DIm4y3o6Bd7GRR725pmocPgzE3zwE";
+function googleMapQuery(origin, destination){
+	return "https://maps.googleapis.com/maps/api/distancematrix/json?units=metric"
+			+ "&origins=" + origin
+			+ "&destinations=" + destination
+			+ "&key="+ GOOGLE_MAP_API_KEY;
+}
+var distance = require('google-distance');
+distance.apiKey = GOOGLE_MAP_API_KEY;
 
+const axios = require('axios');
 
 module.exports = function(router, connection, passport){
-
 
 	var CITYLIST = {};
 	var DISTRICTLIST = {};
@@ -13,6 +22,9 @@ module.exports = function(router, connection, passport){
 	var DETAIL_CATEGORY = {};
 	var RESTAURANT = {};
 	var FOODLIST = [];
+	var FOODSEARCH = [];
+	var FOODCATEGORYLIST = [];
+
 
 	connection.query(
 		'SELECT * FROM cities',
@@ -194,11 +206,13 @@ module.exports = function(router, connection, passport){
 				return;
 			}
 
+			// console.log(cates);
+
 			var cateLits = [];
 			for (var i = 0; i < cates.length; i++) {
 				cateLits.push({
 					cate_id : cates[i].id,
-					cate_name: cates[i].name
+					cate_name: cates[i].cate_name
 				});
 			}
 
@@ -226,6 +240,8 @@ module.exports = function(router, connection, passport){
 							return;
 						}
 
+						// console.log(details);
+
 						if (details.length) {
 							var cateDetail = [];
 
@@ -244,11 +260,12 @@ module.exports = function(router, connection, passport){
 
 		}
 	);
-	var queryAll = "SELECT fos.*,cate.cate_name, rest.restaurant_name, detail.detail_name, usr.username FROM foods AS fos";
+	var queryAll = "SELECT fos.*,cate.cate_name, rest.restaurant_name, detail.detail_name, usr.username, str.street_name, str.district_name, str.city_name FROM foods AS fos";
 	queryAll += " INNER JOIN users AS usr ON fos.owner_id = usr.id";
 	queryAll += " INNER JOIN restaurants AS rest ON fos.restaurant_id = rest.restaurant_id";
 	queryAll += " INNER JOIN category AS cate ON fos.category_id = cate.id"
 	queryAll += " INNER JOIN detail_category AS detail ON fos.detail_category_id = detail.id";
+	queryAll += " INNER JOIN streets AS str ON fos.street_id = str.street_id AND fos.district_id = str.district_id AND fos.city_id = str.city_id"
 
 	connection.query(queryAll,(err, rows) => {
 		if (err) {
@@ -256,11 +273,9 @@ module.exports = function(router, connection, passport){
 		}
 		var i = 0;
 
-		console.log(i < rows.length);
-
 		console.log(rows.length);
-			SequenceQuery("SELECT img.file_id FROM images AS img WHERE img.food_id = ?", rows, i, rows.length)
-			console.log("i = " + i);
+			SequenceQuery("SELECT img.file_id FROM images AS img WHERE img.food_id = ?", rows, i, rows.length, FOODLIST)
+			// console.log("i = " + i);
 	});
 
 	function DatabaseQuery(query, args){
@@ -274,72 +289,410 @@ module.exports = function(router, connection, passport){
 		})
 	}
 
-	function SequenceQuery(query, rows, index, len){
+	function SequenceQuery(query, rows, index, len, ListName){
 
 		if(index < len){
-
-		console.log("index = " + index);
-
-		return new Promise( (resolve, reject) => {
-			DatabaseQuery("SELECT img.file_id FROM images AS img WHERE img.food_id = ?", rows[index].id)
-			.then( imageRes => {
-				// console.log("compare imageRes vs undefined " + imageRes !== undefined);
-				// if(index === 14){
-				// 	console.log("index = 14, length" + imageRes.length);
-				// }
-				if(imageRes !== undefined){
-					let list = [];
-					if(imageRes.length){
-						// console.log("leng > 0");
-						for (var i = 0; i < imageRes.length; i++) {
-							for (let [key, value] of Object.entries(imageRes[i])) {
-							   list.push(value);
-
-							   // if(index === 14){
-								//    console.log("index = 14" + value);
-								//    console.log(rows[14]);
-							   // }
-							   // list[i] = value;
+			return new Promise( (resolve, reject) => {
+				DatabaseQuery("SELECT img.file_id FROM images AS img WHERE img.food_id = ?", rows[index].id)
+					.then( imageRes => {
+						if(imageRes !== undefined){
+							let list = [];
+							if(imageRes.length){
+								// console.log("leng > 0");
+								for (var i = 0; i < imageRes.length; i++) {
+									for (let [key, value] of Object.entries(imageRes[i])) {
+									   list.push(value);
+								   	}
+								}
 							}
+							rows[index].imageUrl = list;
 						}
+
+						return DatabaseQuery("SELECT vid.file_id FROM videos AS vid WHERE vid.food_id = ?", rows[index].id);
+					})
+					.then( videoRes => {
+							// console.log(videoRes);
+							resolve(true);
+							let list = [];
+							for (var i = 0; i < videoRes.length; i++) {
+								for (let [key, value] of Object.entries(videoRes[i])) {
+								   list.push(value);
+								}
+							}
+							rows[index].videoUrl = list;
+							ListName.push(rows[index]);
+						}
+					)
+				})
+				.then(
+					res => {
+						// console.log(res);
+						SequenceQuery(query, rows, index + 1, len, ListName)
+					}
+				)
+		}
+
+	}
+
+	// router.get('/distance', function(req, res){
+	// 	distance.get({
+	// 	    origin: 'San Francisco, CA',
+	// 	    destination: 'Los Angeles, CA',
+	// 	    mode: 'bicycling',
+	// 	    units: 'imperial'
+	// 	},
+	// 	function(err, data) {
+	// 		if (err) return console.log(err);
+	// 		console.log(data);
+	// 	});
+	// });
+
+	router.post("/food-search", function(req, res){
+
+		FOODSEARCH = [];
+		FOODDISTANCE = [];
+		console.log("Start");
+		console.log(req.body);
+		var { districtSelected, streetSelected, distanceSelected, category , detail, content, latitude, longitude } = req.body;
+		var city = 1 ;//default HANOI
+		console.log("city > 0" + (city > 0));
+		console.log("district " + districtSelected +  (districtSelected > 0));
+		console.log( "cate : " + category);
+		console.log("detail :" + detail);
+		var searchQuery = "SELECT fos.id FROM foods AS fos";
+		if(parseInt(city) > 0) searchQuery += " WHERE fos.city_id = " + city;
+		if(districtSelected > 0) searchQuery += " AND fos.district_id = " + districtSelected;
+		if(streetSelected > 0) searchQuery += " AND fos.street_id = " + streetSelected;
+		if(category > 0) searchQuery += " AND fos.category_id = " + category;
+		if(detail > 0) searchQuery += " AND fos.detail_category_id = " + detail;
+
+		console.log(searchQuery);
+
+		var destinations = "";
+		var origin = latitude + ',' + longitude;
+
+		connection.query(searchQuery,(err, rows) => {
+			if (err) {
+				throw err;
+			}
+			if(!rows.length){
+				console.log('rows = ' + rows.length);
+				res.json({
+					status: "fail",
+					msg: "Không tìm thấy kết quả nào"
+				});
+				return;
+			}
+			let listId = [];
+			for (let i = 0; i < rows.length; i++) {
+				listId.push(rows[i].id);
+			}
+			for (let j = 0; j < FOODLIST.length; j++) {
+				if (listId.includes(FOODLIST[j].id)) {
+					// var foli = JSON.stringify(FOODLIST[j]);
+					var foli = FOODLIST[j];
+					console.log("foli " + j + ': ' + foli.street_name);
+					FOODSEARCH.push(foli);
+					destinations += foli.street_number + "," + foli.street_name + "," + foli.district_name + "," + foli.city_name + "|";
+				}
+			}
+
+			// console.log(destinations);
+			// var url = googleMapQuery(origin, destinations);
+			// router.get(url, function(req, res){
+			// 	console.log(res);
+			// })
+			distance.get({
+				origin: origin,
+				destination: destinations,
+				mode: 'transit',
+				units: 'metric'
+			},
+			function(err, data) {
+				if (err) return console.log(err);
+				if(distanceSelected < 0){
+					for (let i = 0; i < data.length; i++) {
+						FOODSEARCH[i].distance = data[i].distance;
+
+						console.log(data[i].distance);
 					}
 
-
-					var row = rows[index];
-					let cityid = row.city_id;
-					let districtid = row.district_id;
-					let streetid = row.street_id;
-					// console.log("streetid = " +  JSON.stringify(STREET[1].district_list[1].street_list));
-					// console.log("streetid = " +  STREET[1].district_list[1].street_list[2].street_name);
-
-					row.cityname = CITY[cityid].city_name;
-					row.districtname = DISTRICT[cityid].district_list[districtid].district_name;
-					// row.streetname =  DISTRICT[cityid].district_list[districtid];
-					// STREET[res[0].city_id].district_list[res[0].district_id].street_list[res[0].street_id].street_name;
-					rows[index].imageUrl = list;
-					FOODLIST.push(row);
-					// console.log(FOODLIST[14]);
-					resolve(true);
+					res.json({
+						status: "success",
+						data: FOODSEARCH
+					});
 				}
 				else {
-					reject("fail")
+					for (let i = 0; i < data.length; i++) {
+
+						var dist = data[i].distance.split(' ')[0];
+						if(Number(dist) < Number(distanceSelected)){
+							console.log("on");
+							FOODSEARCH[i].distance = data[i].distance;
+							FOODDISTANCE.push(FOODSEARCH[i]);
+						}
+					}
+					res.json({
+						status: "success",
+						data: FOODDISTANCE
+					});
 				}
+
+
+				// console.log(FOODSEARCH);
+
+
+				// console.log(data);
 			});
-		}).then(
+			// axios.get(url)
+			// .then(res => {
+			// 	// console.log(res);
+			// 	console.log("suceess");
+			// 	// console.log(res.rows[0].length);
+			// })
+			// .catch(function (error) {
+			//    console.log(error)
+			//    console.log("fail");
+			//  })
+
+		});
+
+	});
+
+	function SequenceCategory(index, len,  CATEGORY, FOODCATEGORYLIST){
+		if(index < len){
+			// console.log('index = ' + index);
+			// console.log("CATEGORY" );
+			// console.log(CATEGORY[index]);
+			return new Promise( (resolve, reject) => {
+				DatabaseQuery("SELECT id FROM foods WHERE category_id = ?", CATEGORY[index].cate_id)
+				.then(
+					rows =>{
+						console.log(rows);
+						console.log("i = " + index);
+						let data = [];
+						let foods = []
+						let listId = [];
+						for (let i = 0; i < rows.length; i++) {
+							listId.push(rows[i].id);
+						}
+
+						for (let j = 0; j < FOODLIST.length; j++) {
+							if (listId.includes(FOODLIST[j].id)) {
+								// console.log('id = ' + FOODLIST[j].id);
+								foods.push(FOODLIST[j])
+							}
+						}
+
+						data.push({
+							category_name : CATEGORY[index].cate_name,
+							foods : foods
+						});
+						// console.log(foods);
+						FOODCATEGORYLIST.push({
+							category_name : CATEGORY[index].cate_name,
+							foods : foods
+						});
+
+						resolve(true)
+
+					}
+				)
+			}).then(
+				res => {
+					// console.log(res);
+					SequenceCategory(index + 1, len, CATEGORY, FOODCATEGORYLIST)
+				}
+			)
+		}
+	}
+
+
+	router.get("/food/category-list", function(req, res){
+
+		// console.log(FOODCATEGORYLIST);
+		// console.log(CATEGORY);
+		var i = 0;
+		var len = CATEGORY.length;
+		console.log(CATEGORY[i].cate_id);
+		SequenceCategory(0, len, CATEGORY, FOODCATEGORYLIST);
+		res.json({
+			status: "success",
+			data: FOODCATEGORYLIST
+		});
+
+
+	})
+
+	router.get("/food-category/:id", function(req, res){
+		var categoryId = req.params.id;
+		console.log(categoryId);
+		var query = "SELECT fos.id FROM foods AS fos WHERE fos.category_id = " + categoryId;
+		connection.query(query,(err, rows) => {
+			if (err) {
+				throw err;
+			}
+			let listId = [];
+			let data = [];
+			for (let i = 0; i < rows.length; i++) {
+				listId.push(rows[i].id);
+			}
+
+			for (let j = 0; j < FOODLIST.length; j++) {
+				if (listId.includes(FOODLIST[j].id)) {
+					data.push(FOODLIST[j])
+				}
+			}
+			res.json({
+				status: "success",
+				data: data
+			});
+		});
+
+	})
+
+
+	router.get("/food-nearby/:place", function(req, res){
+		console.log(req.params);
+		var NEARBY = [];
+		var origin = req.params.place;
+		var destinations = "";
+		for (var i = 0; i < FOODLIST.length; i++) {
+			var foli = FOODLIST[i];
+			destinations += foli.street_number + "," + foli.street_name + "," + foli.district_name + "," + foli.city_name + "|";
+		}
+
+		distance.get({
+			origin: origin,
+			destination: destinations,
+			mode: 'transit',
+			units: 'metric'
+		},
+		function(err, data) {
+			if (err) return console.log(err);
+			for (let i = 0; i < data.length; i++) {
+				var distance = data[i].distance;
+				if(distance.split(" ")[0] < 3){
+					var foli = FOODLIST[i];
+					foli.distance = distance;
+					NEARBY.push(foli);
+				}
+
+				console.log(data[i].distance);
+			}
+
+			// console.log(FOODSEARCH);
+
+			res.json({
+				status: "success",
+				data: NEARBY
+			});
+			// console.log(data);
+		});
+	});
+
+
+	router.get('/like-favorite/:food_id/:user_id', function(req, res){
+		console.log(req.params);
+		const {food_id, user_id } = req.params;
+		console.log("user_id = " + user_id);
+		// var user_id =req.params.user_id;
+		// var food_id = req.params.user_id;
+		var like = false;
+		var favorite = false;
+		connection.query('SELECT * FROM likes WHERE food_id = ? AND user_id = ?  ', [food_id, user_id], (err, rows) => {
+			if(err) throw err;
+			if(rows.length){
+				like = true;
+			}
+			connection.query('SELECT * FROM favorites WHERE food_id = ?  AND user_id = ? ',[food_id, user_id], (err, rows) => {
+				if(err) throw err;
+				if(rows.length){
+					favorite = true;
+				}
+
+				res.json({
+					like : like,
+					favorite: favorite
+				})
+
+			})
+		})
+	})
+
+
+
+
+	router.get("/food/:id", function (req, res){
+		// console.log(req.params.id);
+		// console.log(FOODLIST[3].id);
+
+		// for (let j = 0; j < FOODLIST.length; j++) {
+		// 	if (req.params.id === FOODLIST[j].id) {
+		// 		console.log(req.params.id === FOODLIST[j].id);
+		// 		// res.status(200).json({
+		// 		// 	status: "success",
+		// 		// 	data: FOODLIST[j]
+		// 		// })
+		// 	}
+		// }
+
+		var foodData = [];
+		var foodId = req.params.id;
+		console.log(foodId);
+		var query = "SELECT fos.*,cate.cate_name, rest.restaurant_name, detail.detail_name, usr.username,str.street_name, str.district_name, str.city_name FROM foods AS fos";
+		query += " INNER JOIN users AS usr ON fos.owner_id = usr.id";
+		query += " INNER JOIN restaurants AS rest ON fos.restaurant_id = rest.restaurant_id";
+		query += " INNER JOIN category AS cate ON fos.category_id = cate.id";
+		query += " INNER JOIN detail_category AS detail ON fos.detail_category_id = detail.id";
+		// query += " INNER JOIN detail_category AS detail ON fos.detail_category_id = detail.id";
+		query += " INNER JOIN streets AS str ON fos.street_id = str.street_id AND fos.district_id = str.district_id AND fos.city_id = str.city_id";
+
+		query +=  " WHERE fos.id = " + foodId;
+
+		DatabaseQuery(query).then(
 			res => {
-				SequenceQuery(query, rows, index + 1, len)
+				foodData = res[0];
+				return DatabaseQuery("SELECT img.file_id FROM images AS img WHERE img.food_id = ?", foodId);
+			}
+		).then(
+			imageRes => {
+				// console.log(imageRes);
+				let list = [];
+				for (var i = 0; i < imageRes.length; i++) {
+					for (let [key, value] of Object.entries(imageRes[i])) {
+					   list.push(value);
+					   // list[i] = value;
+					}
+				}
+				foodData.imageUrl = list;
+				return DatabaseQuery("SELECT vid.file_id FROM videos AS vid WHERE vid.food_id = ?", foodId);
 			}
 		)
-	}
+		.then(
+			videoRes => {
+				let list = [];
+				for (var i = 0; i < videoRes.length; i++) {
+					for (let [key, value] of Object.entries(videoRes[i])) {
+					   list.push(value);
+					}
+				}
+				foodData.videoUrl = list;
 
-	}
+				res.status(200).json({
+					status: "success",
+					data: foodData
+				})
+			}
+		)
+	})
 
-	router.get("/food/list", function(req, res){
+	router.get("/food-list", function(req, res){
 		res.status(200).json({
 			status: 'success',
-			foods: FOODLIST
+			foods : FOODLIST
 		});
-	})
+	});
 
 	router.get('/cities', function (req, res) {
 		res.status(200).json({
@@ -399,112 +752,4 @@ module.exports = function(router, connection, passport){
 			data: DETAIL_CATEGORY
 		})
 	})
-
-
-
-
-
-	router.get("/food/:id", function (req, res){
-
-		var foodData;
-		var foodId = req.params.id;
-		// query += " INNER JOIN restaurants AS rest ON foo.restaurant_id = rest.restaurant_id";
-		var query = "SELECT fos.*,cate.cate_name, rest.restaurant_name, detail.detail_name, usr.username FROM foods AS fos";
-		query += " INNER JOIN users AS usr ON fos.owner_id = usr.id";
-		query += " INNER JOIN restaurants AS rest ON fos.restaurant_id = rest.restaurant_id";
-		query += " INNER JOIN category AS cate ON fos.category_id = cate.id"
-		query += " INNER JOIN detail_category AS detail ON fos.detail_category_id = detail.id";
-		// query += " INNER JOIN images AS img ON fos.id = img.food_id";
-
-		query +=  " WHERE fos.id = " + foodId
-
-		var query =
-
-		DatabaseQuery(query,).then(
-			res => {
-				foodData = res[0];
-				// console.log("street_id " + res[0].street_id);
-				foodData['cityname'] = CITY[res[0].city_id].city_name;
-				foodData['districtname'] = STREET[res[0].city_id].district_list[res[0].district_id].district_name;
-				foodData['streetname'] =  STREET[res[0].city_id].district_list[res[0].district_id].street_list[res[0].street_id].street_name;
-				// console.log("streetname " +  STREET[res[0].city_id].district_list[res[0].district_id].street_list[res[0].street_id].street_name);
-				return DatabaseQuery("SELECT img.file_id FROM images AS img WHERE img.food_id = ?", foodId);
-			}
-		).then(
-			imageRes => {
-				// console.log(imageRes);
-				let list = [];
-				for (var i = 0; i < imageRes.length; i++) {
-					for (let [key, value] of Object.entries(imageRes[i])) {
-					   list.push(value);
-					   // list[i] = value;
-					}
-				}
-
-				foodData.imageUrl = list;
-				// res.status(200).json({
-				// 	status: "success",
-				// 	data: foodData
-				// })
-
-				return DatabaseQuery("SELECT vid.file_id FROM videos AS vid WHERE vid.food_id = ?", foodId);
-				console.log(foodData);
-
-
-			}
-		).then(
-			videoRes => {
-				console.log(videoRes);
-				let list = [];
-				for (var i = 0; i < videoRes.length; i++) {
-					for (let [key, value] of Object.entries(videoRes[i])) {
-					   list.push(value);
-					}
-				}
-
-				foodData.videoUrl = list;
-
-				res.status(200).json({
-					status: "success",
-					data: foodData
-				})
-			}
-		)
-		// DatabaseQuery("SELECT img.file_id FROM images AS img WHERE img.food_id = ?", foodId).then(
-		// 	res => {
-		// 		console.log(res);
-		// 	}
-		// )
-
-
-		// connection.query(query, function(err, rows, fileds){
-		// 	if(err) throw err;
-		// 	console.log(rows);
-		// 	let row = rows[0];
-		// 	row['cityname'] = CITY[row.city_id].city_name;
-		// 	console.log(DISTRICT[row.city_id][row.district_id]);
-		// 	row['districtname'] = STREET[row.city_id].district_list[row.district_id].district_name;
-		// 	row['stretname'] =  STREET[row.city_id].district_list[row.district_id].street_list[row.street_id].street_name;
-		// 	let food = {};
-		//
-		// 	Object.keys(row).forEach(function(key) {
-		// 		food[key] = row[key];
-		// 	})
-		// 	console.log(food);
-		// 	FOOD =  food;
-		// 	res.status(200).json({
-		// 		status: "success",
-		// 		data: row
-		// 	})
-		// })
-
-
-		// res.status(200).json({
-		// 	status: "success",
-		// 	data:
-		// })
-	})
-
-
-
 }

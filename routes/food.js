@@ -19,45 +19,86 @@ const TOKEN_PATH = 'credentials.json';
 
 module.exports = function(router, connection, passport, upload){
 
-    router.get('/', function(req, res){
+    router.get('/test', upload.array('uploadFile', 10), function(req, res) {
+        connection.query('UPDATE videos SET file_id = ? , folder_id = ? WHERE id = ?', ['mot', 'hai', 13], (err, row) => {
+            console.log(row);
+        })
+    });
 
-        // var restaurant_name = "nam";
-        // var restaurant_id = 1;
-        // uploadImage("ronalkean", "upload/photo.jpg", "image/jpg", 1);
-        //
-        // function getJSON() {
-        //     return new Promise( function(resolve) {
-        //         uploadImage("ronalkean", "upload/photo.jpg", "image/jpg")
-        //         .then( function(json) {
-        //             resolve(json);
-        //         });
-        //     })
-        // }
+    router.post('/like', function(req, res){
+        console.log(req.body);
+        const {user_id, food_id} = req.body;
+        connection.query("INSERT INTO likes(user_id, food_id) VALUES(?,?)", [user_id, food_id], (err, rows) => {
+            if (err) {
+                throw err;
+            }
+            console.log("add like success");
 
+            res.json({
+                status: 'like success'
+            })
+        })
+    })
 
+    router.post('/favorite', function(req, res){
+        console.log(req.body);
+        const {user_id, food_id} = req.body;
+        connection.query("INSERT INTO favorites(user_id, food_id) VALUES(?,?) ", [user_id, food_id], (err, rows) => {
+            if (err) {
+                throw err;
+            }
+            console.log("add favorite list success");
 
+            res.json({
+                status: 'favorite success'
+            })
+        })
+    })
 
-        var restaurant_name = "jellyyyy";
+    router.get('/delete/:id', function(req, res){
+        console.log(req.params.id);
+        var query = "DELETE FROM foods WHERE foods.id = " + req.params.id;
+
+        connection.query(query, (err, rows) => {
+            if(err){
+                throw err;
+            }
+            console.log(rows);
+            res.json({
+                status: "success",
+                msg: "Xoá thành công"
+            })
+        })
+    })
+
+    router.get('/approve/:id', function(req, res){
+        connection.query("UPDATE foods SET status = ? WHERE id = ?",['approve', req.params.id], (err, rows) => {
+            if(err){
+                throw err;
+            }
+            console.log(rows);
+            res.json({
+                status: "success",
+                msg: "Bài viết đã được duyệt"
+            })
+        })
+    })
+
+    router.post('/edit/:id', upload.array('uploadFile', 50), function(req, response){
+        console.log(req.body);
+        console.log(req.files);
+        var foodId = req.params.id;
+        var restaurant_name = req.body.restaurant;
         var restaurant_id;
-        function getFileId() {
-            return new Promise( ( resolve, reject ) => {
-                uploadImage("ronalkean", "upload/photo.jpg", "image/jpg", 15)
-                .then(res => {
-                    resolve(res)
-                })
-                // .catch(err => {
-                //     reject( err );
-                // })
-                //     if ( err )
-                //         return reject( err );
-                //     resolve( rows );
-                // })
-            });
-        }
-
-        // uploadImage("ronalkean", "upload/photo.jpg", "image/jpg", 15).then(res => {
-        //     console.log("res = " + res);
-        // })
+        var formData = req.body;
+        var fileList = req.files;
+        var updateData = [];
+        Object.keys(formData).forEach(function(key) {
+            updateData.push(formData[key]);
+        });
+        updateData.splice(-1,1)
+        console.log(updateData);
+        console.log("restaurant_name :" + restaurant_name);
 
         function getRestaurantId() {
             return new Promise( ( resolve, reject ) => {
@@ -71,35 +112,74 @@ module.exports = function(router, connection, passport, upload){
 
         getRestaurantId().then(res =>{
             console.log(res);
+
             if(!res.length){
-                connection.query('INSERT INTO restaurants (restaurant_name) VALUES (?)',
-                   [restaurant_name],
-                   function(err, result, fields){
-                       // console.log(result);
-                       console.log("insertId = " + result.insertId);
-                       restaurant_id = result.insertId;
-                       // insertData.push(result.insertId);
-                       // insertFood(insertData, fileList); } )
-                   })
+
+                return new Promise( ( resolve, reject ) => {
+                    connection.query('INSERT INTO restaurants (restaurant_name) VALUES (?)',restaurant_name, ( err, rows ) => {
+                        if ( err )
+                            return reject( err );
+                        resolve( rows.insertId );
+                    })
+                });
             }
             else {
-                                console.log("res = " + JSON.stringify(res));
-                restaurant_id = res[0].restaurant_id;
+                return res[0].restaurant_id;
             }
-
-            return restaurant_id;
-
-            console.log("resid = " + restaurant_id);
-        })
-        .then(res => {
+        }).then(res => {
             console.log("next then res = " + res);
-        })
+            updateData.push(res);
+            updateData.push(foodId);
+            // updateData.push('pending');
+            console.log(updateData);
 
-        console.log("finish all resid = " + restaurant_id);
+            updateFood(updateData, fileList);
+
+            function updateFood(data, fileList){
+                connection.query(
+                    'UPDATE foods SET name = ?, description = ?, prices = ?, city_id = ?, district_id = ?, street_id = ?, street_number = ?, category_id = ?, detail_category_id = ?, owner_id = ?, restaurant_id = ? WHERE id = ? ',
+                    data,
+                    function(err, result, fields){
+                        if (err) {
+                            throw err;
+                        }
+                        // console.log("add food");
+                        // console.log(result);
+                        if(!fileList.length){
+                            response.json({
+                                status : "success",
+                                msg : "info update and no files upload"
+                            });
+                            response.end();
+                        }
+                        else {
+                            for(var i=0; i < fileList.length; i++ ){
+                                var fst = fileList[i];
+                                var fileId = "";
+                                if(fst.mimetype.includes("image")){
+                                    uploadImage(fst.filename, fst.path, fst.mimetype, foodId);
+                                }
+                                else{
+                                    uploadVideo(fst.filename, fst.path, fst.mimetype, foodId);
+                                }
+                            }
+
+                            response.json({
+                                status : "success",
+                                msg : "info and files update"
+                            })
+                        }
+
+
+                    }
+                )
+
+            }
+        })
     });
 
 
-    router.post('/create', upload.array('uploadFile', 10), function(req, res) {
+    router.post('/create', upload.array('uploadFile', 50), function(req, res) {
         // var file = req.files;
         console.log(req.body);
         console.log(req.files);
@@ -145,13 +225,14 @@ module.exports = function(router, connection, passport, upload){
         }).then(res => {
             console.log("next then res = " + res);
             insertData.push(res);
+            insertData.push('pending');
             console.log(insertData);
 
             insertFood(insertData, fileList);
 
             function insertFood(data, fileList){
                 connection.query(
-                    'INSERT INTO foods (name, description, prices, city_id, district_id, street_id, street_number, category_id, detail_category_id, owner_id, restaurant_id ) VALUES (?,?,?,?,?,?,?,?,?,?,?)',
+                    'INSERT INTO foods (name, description, prices, city_id, district_id, street_id, street_number, category_id, detail_category_id, owner_id, restaurant_id, status ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)',
                     data,
                     function(err, result, fields){
                         if (err) {
@@ -176,47 +257,33 @@ module.exports = function(router, connection, passport, upload){
 
             }
         })
-
-
-        // console.log("after connect mysql" +  restaurant_id);
-  // res.end()
-});
-
-  router.post('/image', upload.array('uploadFile', 10), function(req, res) {
-    console.log("fuck");
-
-    console.log(req.body);
-    console.log(req.files);
-    console.log(req.files.length);
-    var listFile = req.files;
-    for (var i=0; i<listFile.length; i++) {
-      console.log();
-      var lst = listFile[i];
-      // googleDrive.uploadToDrive(lst.filename, lst.path, lst.mimetype);
-    }
-    // console.log(req.file);
-    // googleDrive.uploadToDrive("name", req.file.path, req.file.mimetype);
     });
 
 
-    // Load client secrets from a local file.
 
     function uploadVideo(fileName, filePath, mimeType, foodid) {
-        fs.readFile('client_secret.json', (err, content) => {
+        fs.readFile("routes/client_secret.json", (err, content) => {
             if (err) return console.log('Error loading client secret file:', err);
+            console.log(content);
             // Authorize a client with credentials, then call the Google Drive API.
             // authorize(JSON.parse(content), listFiles);
             authorize(JSON.parse(content), addVideo, fileName, filePath, mimeType, foodid);
         });
+
+        // authorize(JSON.parse(file), addVideo, fileName, filePath, mimeType, foodid);
     }
 
     function uploadImage (fileName, filePath, mimeType, foodid) {
-        fs.readFile('client_secret.json', (err, content) => {
+        console.log(process.cwd());
+        console.log(__dirname);
+        fs.readFile("routes/client_secret.json", (err, content) => {
             if (err) return console.log('Error loading client secret file:', err);
+            console.log(JSON.parse(content));
             // Authorize a client with credentials, then call the Google Drive API.
             // authorize(JSON.parse(content), listFiles);
             authorize(JSON.parse(content), addImage, fileName, filePath, mimeType, foodid);
         });
+        // authorize(JSON.parse(file), addVideo, fileName, filePath, mimeType, foodid);
     }
 
     /**
@@ -228,6 +295,7 @@ module.exports = function(router, connection, passport, upload){
     function authorize(credentials, callback, fileName, filePath,  mimeType, foodid) {
         // console.log("??????????????????????????" + Buffer.from(filePath));
         const { client_secret, client_id, redirect_uris } = credentials.installed;
+        // const { client_secret, client_id, redirect_uris } = credentials.web;
         const oAuth2Client = new OAuth2Client(client_id, client_secret, redirect_uris[0]);
 
         // Check if we have previously stored a token.

@@ -11,7 +11,7 @@
   padding-left: 0;
 }
 
-.mainColor {
+.main-color {
     background-color: #528e5c;
 }
 
@@ -22,7 +22,7 @@
 	/*height: 100px;*/
 }
 
-.mainColor, .navbar-light .navbar-nav .nav-link {
+.main-color, .navbar-light .navbar-nav .nav-link {
     color: #fff !important;
 }
 

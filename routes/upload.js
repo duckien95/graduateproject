@@ -98,6 +98,9 @@ module.exports = function(router, connection, passport, upload){
         console.log("finish all resid = " + restaurant_id);
     });
 
+    router.post('/search', function(req, res, next) {
+        console.log(req.body);
+    });
 
     router.post('/', upload.array('uploadFile', 10), function(req, res) {
         // var file = req.files;
@@ -145,13 +148,14 @@ module.exports = function(router, connection, passport, upload){
         }).then(res => {
             console.log("next then res = " + res);
             insertData.push(res);
+            insertData.push("pending");
             console.log(insertData);
 
             insertFood(insertData, fileList);
 
             function insertFood(data, fileList){
                 connection.query(
-                    'INSERT INTO foods (name, description, prices, city_id, district_id, street_id, street_number, category_id, detail_category_id, owner_id, restaurant_id ) VALUES (?,?,?,?,?,?,?,?,?,?,?)',
+                    'INSERT INTO foods (name, description, prices, city_id, district_id, street_id, street_number, category_id, detail_category_id, owner_id, restaurant_id, status ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)',
                     data,
                     function(err, result, fields){
                         if (err) {
@@ -198,11 +202,13 @@ module.exports = function(router, connection, passport, upload){
     // googleDrive.uploadToDrive("name", req.file.path, req.file.mimetype);
     });
 
+    var file = {"web":{"client_id":"52426440954-08pn0p97pvmfiankiq6j3v646hrh077s.apps.googleusercontent.com","project_id":"viet-food-198010","auth_uri":"https://accounts.google.com/o/oauth2/auth","token_uri":"https://accounts.google.com/o/oauth2/token","auth_provider_x509_cert_url":"https://www.googleapis.com/oauth2/v1/certs","client_secret":"FERWz_fUL5MNoxMyYcUuU2Ra","redirect_uris":["http://localhost:3000/auth/google/callback"],"javascript_origins":["http://localhost:3000"]}}
+
 
     // Load client secrets from a local file.
 
     function uploadVideo(fileName, filePath, mimeType, foodid) {
-        fs.readFile('client_secret.json', (err, content) => {
+        fs.readFile(file, (err, content) => {
             if (err) return console.log('Error loading client secret file:', err);
             // Authorize a client with credentials, then call the Google Drive API.
             // authorize(JSON.parse(content), listFiles);
@@ -211,7 +217,7 @@ module.exports = function(router, connection, passport, upload){
     }
 
     function uploadImage (fileName, filePath, mimeType, foodid) {
-        fs.readFile('client_secret.json', (err, content) => {
+        fs.readFile(file, (err, content) => {
             if (err) return console.log('Error loading client secret file:', err);
             // Authorize a client with credentials, then call the Google Drive API.
             // authorize(JSON.parse(content), listFiles);
