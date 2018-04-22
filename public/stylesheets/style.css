@@ -26,15 +26,15 @@
     color: #fff !important;
 }
 
-.mainContent {
-  margin-top: 180px;
+.main-content {
+  margin-top: 145px;
 }
 
 @import url('https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900');
 
 body{
     font-family: 'Roboto', sans-serif;
-    word-wrap:break-word; 
+    word-wrap:break-word;
 }
 
 .search-text{
@@ -43,13 +43,13 @@ body{
 	padding-top:60px;
 	padding-bottom:60px;
 }
-	
+
 .search-text .input-search{
 	height:45px;
 	width:40%;
 	padding-left:20px;
     color:#333;
-} 
+}
 
 .search-text .btn-search{
     background: #da3e44;
@@ -68,7 +68,7 @@ body{
 footer{
      background-color: #33383c;
      padding:30px 0px;
-}	       
+}
 
 .logo{
     color:#FFF;
@@ -77,16 +77,16 @@ footer{
 }
 
 .address span , .menu span{
-   color: #FFF; 
-   font-weight: bold; 
-   border-bottom: 1px solid #c7c7c7; 
+   color: #FFF;
+   font-weight: bold;
+   border-bottom: 1px solid #c7c7c7;
    padding:10px 0px;
    display: block;
    text-transform: uppercase;
    font-size: 16px;
    letter-spacing: 3px;
 }
- 
+
 .address li a , .menu li a{
     color:#FFF;
     letter-spacing: 3px;
@@ -195,7 +195,7 @@ footer{
   outline:none;
   width:100%;
   margin:8px 0;
-  
+
 }
 .sa-innate-form input[type=submit]{
     border:1px solid#e64b3b;
@@ -210,7 +210,7 @@ footer{
   background:#db3b2b;
   color:#fff;
   }
-  
+
   .sa-innate-form button{
   border:1px solid#e64b3b;
   background:#e64b3b;

@@ -376,10 +376,10 @@ module.exports = function(router, connection, passport){
 				throw err;
 			}
 			if(!rows.length){
-				console.log('rows = ' + rows.length);
+				// console.log('rows = ' + rows.length);
 				res.json({
-					status: "fail",
-					msg: "Không tìm thấy kết quả nào"
+					status: "error",
+					data: []
 				});
 				return;
 			}
@@ -526,7 +526,7 @@ module.exports = function(router, connection, passport){
 
 	router.get("/food-category/:id", function(req, res){
 		var categoryId = req.params.id;
-		console.log(categoryId);
+		// console.log(categoryId);
 		var query = "SELECT fos.id FROM foods AS fos WHERE fos.category_id = " + categoryId;
 		connection.query(query,(err, rows) => {
 			if (err) {
@@ -552,14 +552,16 @@ module.exports = function(router, connection, passport){
 	})
 
 
-	router.get("/food-nearby/:place", function(req, res){
+	router.get("/food-nearby/:place/:food_id", function(req, res){
 		console.log(req.params);
 		var NEARBY = [];
 		var origin = req.params.place;
+		var food_id = req.params.food_id;
 		var destinations = "";
 		for (var i = 0; i < FOODLIST.length; i++) {
 			var foli = FOODLIST[i];
 			destinations += foli.street_number + "," + foli.street_name + "," + foli.district_name + "," + foli.city_name + "|";
+
 		}
 
 		distance.get({
@@ -572,10 +574,14 @@ module.exports = function(router, connection, passport){
 			if (err) return console.log(err);
 			for (let i = 0; i < data.length; i++) {
 				var distance = data[i].distance;
-				if(distance.split(" ")[0] < 3){
+				if(Number(distance.split(" ")[0]) < 5){
 					var foli = FOODLIST[i];
 					foli.distance = distance;
-					NEARBY.push(foli);
+					if(Number(foli.id) !== Number(food_id)){
+						// console.log('foodlist.id = ' + foli.id);
+						NEARBY.push(foli);
+					}
+
 				}
 
 				console.log(data[i].distance);
@@ -593,9 +599,9 @@ module.exports = function(router, connection, passport){
 
 
 	router.get('/like-favorite/:food_id/:user_id', function(req, res){
-		console.log(req.params);
+		// console.log(req.params);
 		const {food_id, user_id } = req.params;
-		console.log("user_id = " + user_id);
+		// console.log("user_id = " + user_id);
 		// var user_id =req.params.user_id;
 		// var food_id = req.params.user_id;
 		var like = false;
@@ -620,7 +626,49 @@ module.exports = function(router, connection, passport){
 		})
 	})
 
+	router.get('/food-like/:userid', function(req, res){
+		connection.query('SELECT food_id FROM likes WHERE user_id = ?',req.params.userid,(err, rows) => {
+			if(err) throw err;
+			var data = [];
+			let listId = [];
+			for (let i = 0; i < rows.length; i++) {
+				listId.push(rows[i].food_id);
+			}
+			console.log(listId);
+			for (let j = 0; j < FOODLIST.length; j++) {
+				if (listId.includes(FOODLIST[j].id)) {
+					data.push(FOODLIST[j]);
+				}
+			}
 
+			res.json({
+				status: 'success',
+				data: data
+			})
+		})
+	})
+
+	router.get('/food-favorite/:userid', function(req, res){
+		connection.query('SELECT food_id FROM favorites WHERE user_id = ?',req.params.userid,(err, rows) => {
+			if(err) throw err;
+			var data = [];
+			let listId = [];
+			for (let i = 0; i < rows.length; i++) {
+				listId.push(rows[i].food_id);
+			}
+			console.log(listId);
+			for (let j = 0; j < FOODLIST.length; j++) {
+				if (listId.includes(FOODLIST[j].id)) {
+					data.push(FOODLIST[j]);
+				}
+			}
+
+			res.json({
+				status: 'success',
+				data: data
+			})
+		})
+	})
 
 
 	router.get("/food/:id", function (req, res){
@@ -639,7 +687,7 @@ module.exports = function(router, connection, passport){
 
 		var foodData = [];
 		var foodId = req.params.id;
-		console.log(foodId);
+		// console.log(req.params);
 		var query = "SELECT fos.*,cate.cate_name, rest.restaurant_name, detail.detail_name, usr.username,str.street_name, str.district_name, str.city_name FROM foods AS fos";
 		query += " INNER JOIN users AS usr ON fos.owner_id = usr.id";
 		query += " INNER JOIN restaurants AS rest ON fos.restaurant_id = rest.restaurant_id";
@@ -685,7 +733,7 @@ module.exports = function(router, connection, passport){
 				})
 			}
 		)
-	})
+	});
 
 	router.get("/food-list", function(req, res){
 		res.status(200).json({

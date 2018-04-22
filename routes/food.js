@@ -25,6 +25,21 @@ module.exports = function(router, connection, passport, upload){
         })
     });
 
+
+    router.post('/dislike', function(req, res){
+        console.log(req.body);
+        const {user_id, food_id} = req.body;
+        connection.query("DELETE FROM likes WHERE user_id = ? AND food_id = ?", [user_id, food_id], (err, rows) => {
+            if (err) {
+                throw err;
+            }
+            res.json({
+                msg : 'remove like'
+            })
+            console.log("remove like success");
+        })
+    });
+
     router.post('/like', function(req, res){
         console.log(req.body);
         const {user_id, food_id} = req.body;
@@ -32,13 +47,26 @@ module.exports = function(router, connection, passport, upload){
             if (err) {
                 throw err;
             }
-            console.log("add like success");
-
             res.json({
-                status: 'like success'
+                msg : 'add like'
             })
+            console.log("add like success");
         })
-    })
+    });
+
+    router.post('/disfavorite', function(req, res){
+        console.log(req.body);
+        const {user_id, food_id} = req.body;
+        connection.query("DELETE FROM favorites WHERE user_id = ? AND food_id = ?", [user_id, food_id], (err, rows) => {
+            if (err) {
+                throw err;
+            }
+            res.json({
+                msg : 'remove favorite'
+            })
+            console.log("remove favorite list success");
+        })
+    });
 
     router.post('/favorite', function(req, res){
         console.log(req.body);
@@ -47,13 +75,14 @@ module.exports = function(router, connection, passport, upload){
             if (err) {
                 throw err;
             }
+            res.json({
+                status: 'add favorite'
+            })
             console.log("add favorite list success");
 
-            res.json({
-                status: 'favorite success'
-            })
+
         })
-    })
+    });
 
     router.get('/delete/:id', function(req, res){
         console.log(req.params.id);
@@ -83,6 +112,35 @@ module.exports = function(router, connection, passport, upload){
             })
         })
     })
+
+    router.post('/add-media-file', upload.array('uploadFile', 50), function(req, response){
+        console.log(req.body);
+        console.log(req.files);
+        const { food_id }  = req.body;
+        var fileList = req.files;
+        if(!fileList.length){
+            response.json({
+                status : "success",
+                msg : "none media files is added"
+            });
+            response.end();
+        }
+
+        for(var i=0; i < fileList.length; i++ ){
+            var fst = fileList[i];
+            if(fst.mimetype.includes("image")){
+                uploadImage(fst.filename, fst.path, fst.mimetype, food_id);
+            }
+            else{
+                uploadVideo(fst.filename, fst.path, fst.mimetype, food_id);
+            }
+        }
+
+        response.json({
+            status : "success",
+            msg : "add media files"
+        })
+    });
 
     router.post('/edit/:id', upload.array('uploadFile', 50), function(req, response){
         console.log(req.body);
@@ -155,7 +213,6 @@ module.exports = function(router, connection, passport, upload){
                         else {
                             for(var i=0; i < fileList.length; i++ ){
                                 var fst = fileList[i];
-                                var fileId = "";
                                 if(fst.mimetype.includes("image")){
                                     uploadImage(fst.filename, fst.path, fst.mimetype, foodId);
                                 }
@@ -179,7 +236,7 @@ module.exports = function(router, connection, passport, upload){
     });
 
 
-    router.post('/create', upload.array('uploadFile', 50), function(req, res) {
+    router.post('/create', upload.array('uploadFile', 50), function(req, response) {
         // var file = req.files;
         console.log(req.body);
         console.log(req.files);
@@ -193,7 +250,7 @@ module.exports = function(router, connection, passport, upload){
             insertData.push(formData[key]);
         });
         insertData.splice(-1,1)
-        console.log(insertData);
+        // console.log(insertData);
         console.log("restaurant_name :" + restaurant_name);
 
         function getRestaurantId() {
@@ -223,7 +280,7 @@ module.exports = function(router, connection, passport, upload){
                 return res[0].restaurant_id;
             }
         }).then(res => {
-            console.log("next then res = " + res);
+            // console.log("next then res = " + res);
             insertData.push(res);
             insertData.push('pending');
             console.log(insertData);
@@ -252,6 +309,10 @@ module.exports = function(router, connection, passport, upload){
                             }
                         }
 
+                        response.json({
+                            status: 'success'
+                        })
+
                     }
                 )
 
@@ -278,7 +339,7 @@ module.exports = function(router, connection, passport, upload){
         console.log(__dirname);
         fs.readFile("routes/client_secret.json", (err, content) => {
             if (err) return console.log('Error loading client secret file:', err);
-            console.log(JSON.parse(content));
+            // console.log(JSON.parse(content));
             // Authorize a client with credentials, then call the Google Drive API.
             // authorize(JSON.parse(content), listFiles);
             authorize(JSON.parse(content), addImage, fileName, filePath, mimeType, foodid);

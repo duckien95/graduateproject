@@ -27,6 +27,72 @@ module.exports = function(router, connection, passport, upload){
         }
     ];
 
+    router.post('/login-google-facebook', (req, res) => {
+        // console.log(req.body);
+        // console.log(req.body);
+        const {email, firstName, lastName, provider, token } = req.body;
+        // console.log(email);
+        // console.log(firstName);
+        // console.log(lastName);
+        // console.log(provider);
+        // console.log(token);
+        var data = req.body;
+        // var bcryptPassword = bcrypt.hashSync(password);
+
+        connection.query("SELECT * FROM users WHERE email = ?",email, function(err, rows) {
+            if (err){
+                console.log("err"+  err);
+                throw err;
+            }
+            // console.log('line 42');
+            console.log(rows);
+            if (rows.length) {
+                let token = jwt.sign({ username : data.email , password: data.token }, 'keyboard cat 4 ever', { expiresIn: 86400 });
+                // console.log(rows.id + '----' + rows[0].id);
+                data.id = rows[0].id
+                // console.log('line 46'  + token);
+
+                res.status(200).json({
+                    success: true,
+                    err: null,
+                    token,
+                    user : data
+                });
+            } else {
+                connection.query(
+                    "INSERT INTO users (provider, first_name, last_name, email, token) VALUES (?,?,?,?,?)",
+                    [ provider, firstName, lastName, email, token ],
+                    function(err, rows){
+                        if(err) {
+                            res.status(401).json({
+                                success: false,
+                                token: null,
+                                msg: 'Đăng ký không thành công, vui lòng thực hiện lại'
+                            });
+                        }
+                        // console.log('line 67');
+                        // console.log(rows);
+
+                        data["id"] = rows.insertId;
+
+                        let token = jwt.sign({ username : data.email , password: data.token }, 'keyboard cat 4 ever', { expiresIn: 86400 });
+
+                        // console.log('line 71' + token);
+
+                        res.status(200).json({
+                            success: true,
+                            err: null,
+                            token,
+                            user : data
+                        });
+                    }
+                );
+
+
+            }
+        })
+    });
+
     router.post('/local-login', (req, res) => {
         const { username, password } = req.body;
         var data = req.body;
@@ -129,7 +195,7 @@ module.exports = function(router, connection, passport, upload){
 
     });
 
-    router.post('/localllllllllllllll', function(req, res){
+    router.post('/localll', function(req, res){
         console.log(req.body);
         var data = req.body;
         var insertData = [];
