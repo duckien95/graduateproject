@@ -1,4 +1,5 @@
 const GOOGLE_MAP_API_KEY = "AIzaSyDLV4DIm4y3o6Bd7GRR725pmocPgzE3zwE";
+// const GOOGLE_MAP_API_KEY = 'AIzaSyAPiN-8Q1QKqw4-tqwogebchry4_lIn97E';
 function googleMapQuery(origin, destination){
 	return "https://maps.googleapis.com/maps/api/distancematrix/json?units=metric"
 			+ "&origins=" + origin
@@ -10,7 +11,7 @@ distance.apiKey = GOOGLE_MAP_API_KEY;
 
 const axios = require('axios');
 
-module.exports = function(router, connection, passport){
+module.exports = function(router, connection){
 
 	var CITYLIST = {};
 	var DISTRICTLIST = {};
@@ -260,7 +261,7 @@ module.exports = function(router, connection, passport){
 
 		}
 	);
-	var queryAll = "SELECT fos.*,cate.cate_name, rest.restaurant_name, detail.detail_name, usr.username, str.street_name, str.district_name, str.city_name FROM foods AS fos";
+	var queryAll = "SELECT fos.*,cate.cate_name, rest.restaurant_name, detail.detail_name, usr.username, usr.first_name, usr.last_name, str.street_name, str.district_name, str.city_name FROM foods AS fos";
 	queryAll += " INNER JOIN users AS usr ON fos.owner_id = usr.id";
 	queryAll += " INNER JOIN restaurants AS rest ON fos.restaurant_id = rest.restaurant_id";
 	queryAll += " INNER JOIN category AS cate ON fos.category_id = cate.id"
@@ -334,24 +335,76 @@ module.exports = function(router, connection, passport){
 
 	}
 
-	// router.get('/distance', function(req, res){
-	// 	distance.get({
-	// 	    origin: 'San Francisco, CA',
-	// 	    destination: 'Los Angeles, CA',
-	// 	    mode: 'bicycling',
-	// 	    units: 'imperial'
-	// 	},
-	// 	function(err, data) {
-	// 		if (err) return console.log(err);
-	// 		console.log(data);
-	// 	});
-	// });
+	function StandardString(str){
+		str= str.toLowerCase();
+		str= str.replace(/à|á|ạ|ả|ã|â|ầ|ấ|ậ|ẩ|ẫ|ă|ằ|ắ|ặ|ẳ|ẵ/g, "a");
+		str= str.replace(/è|é|ẹ|ẻ|ẽ|ê|ề|ế|ệ|ể|ễ/g, "e");
+		str= str.replace(/ì|í|ị|ỉ|ĩ/g, "i");
+		str= str.replace(/ò|ó|ọ|ỏ|õ|ô|ồ|ố|ộ|ổ|ỗ|ơ|ờ|ớ|ợ|ở|ỡ/g, "o");
+		str= str.replace(/ù|ú|ụ|ủ|ũ|ư|ừ|ứ|ự|ử|ữ/g, "u");
+		str= str.replace(/ỳ|ý|ỵ|ỷ|ỹ/g, "y");
+		str= str.replace(/đ/g, "d");
+		str= str.replace('/', '+');
+		return str;
+	}
+
+	router.get('/distance', function(req, resp){
+
+		var origin = "167 ngo 1A ton that tung, dong da, ha noi";
+		// var dest = "105 quan thanh, ba dinh, viet nam";
+		var dest = '354,Lạc Trung,Hai Bà Trưng,Hà Nội|Số 254,Bạch Mai,Hai Bà Trưng,Hà Nội|241,Trần Đại Nghĩa,Hai Bà Trưng,Hà Nội|24,Lê Văn Hưu,Hoàn Kiếm,Hà Nội|Số 27 Ngõ 29,Hàng Khay,Hoàn Kiếm,Hà Nội|19A, ngõ 9,Trần Quốc Hoàn,Cầu Giấy,Hà Nội|179,Huế,Hai Bà Trưng,Hà Nội|179,Huế,Hai Bà Trưng,Hà Nội|Số 1/96, Ngõ Tự Do,Trần Đại Nghĩa,Hai Bà Trưng,Hà Nội|482,Xã Đàn,Đống Đa,Hà Nội|53A,Hàng Bài,Hoàn Kiếm,Hà Nội|215,Trần Đại Nghĩa,Hai Bà Trưng,Hà Nội|257,Giảng Võ,Đống Đa,Hà Nội|17 Ngõ Gạch,Hàng Buồm,Hoàn Kiếm,Hà Nội|K3B,Tạ Quang Bửu,Hai Bà Trưng,Hà Nội|105,Quán Thánh,Ba Đình,Hà Nội|Ngõ 74,Hàng Quạt,Hoàn Kiếm,Hà Nội|47,Đào Duy Từ,Hoàn Kiếm,Hà Nội|Số  6, Ngõ 139,Khương Thượng,Đống Đa,Hà Nội|244 ,Bạch Mai,Hai Bà Trưng,Hà Nội|106 A7, Ngõ A1,Tôn Thất Tùng,Đống Đa,Hà Nội|301,Tô Hiệu,Cầu Giấy,Hà Nội|117,Trần Đại Nghĩa,Hai Bà Trưng,Hà Nội|13,Lò Đúc,Hai Bà Trưng,Hà Nội|229,Trần Đại Nghĩa,Hai Bà Trưng,Hà Nội|Nhà T8, Khu tập thể Kinh Tế Quốc Dân,Ngõ Tự Do, Trần Đại Nghĩa, Hai Bà Trưng, Hà Nội';
+
+
+
+		// console.log(googleMapQuery(origin, dest));
+		// var url = googleMapQuery(origin, dest);
+		// url = 'https://maps.googleapis.com/maps/api/distancematrix/json?origins=Vancouver+BC|Seattle&destinations=San+Francisco|Victoria+BC&key=AIzaSyAPiN-8Q1QKqw4-tqwogebchry4_lIn97E';
+		var url = 'https://maps.googleapis.com/maps/api/distancematrix/json?origins=' + origin + '&destinations=' + StandardString(dest) + '&key=AIzaSyAPiN-8Q1QKqw4-tqwogebchry4_lIn97E';
+
+		console.log(url);
+
+		// axios.get(url)
+		// .then(
+		// 	res => {
+		// 		// resp.json({
+		// 		// 	data : JSON.stringify(res)
+		// 		// })
+		// 		// console.log(res);
+		// 		console.log(JSON.stringify(res.data.rows));
+		// 		// console.log(res[0].data);
+		// 		resp.json({
+		// 			data : res.data.rows
+		// 		});
+		// 		console.log('success');
+		// 	}
+		// ).catch(
+		// 	err => {
+		// 		// resp.send(err);
+		// 		console.log(err);
+		// 		// console.log('errr');
+		// 	}
+		// )
+		distance.get({
+			origin: origin,
+			destination: StandardString(dest),
+			mode: 'transit',
+			units: 'metric'
+		},
+		function(err, data) {
+			if (err) return console.log(err);
+			console.log(data);
+			resp.json({
+				data : data
+			});
+		});
+	});
+
+
 
 	router.post("/food-search", function(req, res){
 
 		FOODSEARCH = [];
 		FOODDISTANCE = [];
-		console.log("Start");
 		console.log(req.body);
 		var { districtSelected, streetSelected, distanceSelected, category , detail, content, latitude, longitude } = req.body;
 		var city = 1 ;//default HANOI
@@ -366,84 +419,163 @@ module.exports = function(router, connection, passport){
 		if(category > 0) searchQuery += " AND fos.category_id = " + category;
 		if(detail > 0) searchQuery += " AND fos.detail_category_id = " + detail;
 
-		console.log(searchQuery);
+		// console.log(searchQuery);
 
 		var destinations = "";
 		var origin = latitude + ',' + longitude;
-
-		connection.query(searchQuery,(err, rows) => {
-			if (err) {
-				throw err;
-			}
-			if(!rows.length){
-				// console.log('rows = ' + rows.length);
-				res.json({
-					status: "error",
-					data: []
-				});
-				return;
-			}
-			let listId = [];
-			for (let i = 0; i < rows.length; i++) {
-				listId.push(rows[i].id);
-			}
-			for (let j = 0; j < FOODLIST.length; j++) {
-				if (listId.includes(FOODLIST[j].id)) {
-					// var foli = JSON.stringify(FOODLIST[j]);
-					var foli = FOODLIST[j];
-					console.log("foli " + j + ': ' + foli.street_name);
-					FOODSEARCH.push(foli);
-					destinations += foli.street_number + "," + foli.street_name + "," + foli.district_name + "," + foli.city_name + "|";
+		if(content){
+			connection.query('SELECT id FROM foods WHERE MATCH(name, description, prices) AGAINST( ? IN NATURAL LANGUAGE MODE )', content, (err, rows) => {
+				if (err) {
+					throw err;
 				}
-			}
-
-			// console.log(destinations);
-			// var url = googleMapQuery(origin, destinations);
-			// router.get(url, function(req, res){
-			// 	console.log(res);
-			// })
-			distance.get({
-				origin: origin,
-				destination: destinations,
-				mode: 'transit',
-				units: 'metric'
-			},
-			function(err, data) {
-				if (err) return console.log(err);
-				if(distanceSelected < 0){
-					for (let i = 0; i < data.length; i++) {
-						FOODSEARCH[i].distance = data[i].distance;
-
-						console.log(data[i].distance);
-					}
-
+				if (!rows.length) {
 					res.json({
-						status: "success",
-						data: FOODSEARCH
+						status: "error",
+						data: []
 					});
+					return;
 				}
-				else {
-					for (let i = 0; i < data.length; i++) {
 
-						var dist = data[i].distance.split(' ')[0];
-						if(Number(dist) < Number(distanceSelected)){
-							console.log("on");
+				let listId = [];
+				for (let i = 0; i < rows.length; i++) {
+					listId.push(rows[i].id);
+				}
+				for (let j = 0; j < FOODLIST.length; j++) {
+					if (listId.includes(FOODLIST[j].id)) {
+						// var foli = JSON.stringify(FOODLIST[j]);
+						var foli = FOODLIST[j];
+						console.log("foli " + j + ': ' + foli.street_name);
+						FOODSEARCH.push(foli);
+						destinations += (foli.street_number.length > 10) ? foli.street_number : (foli.street_number + "," + foli.street_name);
+						destinations += "," + foli.district_name + "," + foli.city_name + "|";
+					}
+				}
+
+				// console.log(origin);
+				// console.log(destinations);
+				// var url = googleMapQuery(origin, destinations);
+				// router.get(url, function(req, res){
+				// 	console.log(res);
+				// })
+				distance.get({
+					origin: StandardString(origin),
+					destination: StandardString(destinations),
+					mode: 'transit',
+					units: 'metric'
+				},
+				function(err, data) {
+					console.log('line 412');
+					if (err) return console.log(err);
+					console.log('line 414');
+					if(Number(distanceSelected) < 0){
+						for (let i = 0; i < data.length; i++) {
 							FOODSEARCH[i].distance = data[i].distance;
-							FOODDISTANCE.push(FOODSEARCH[i]);
+
+							console.log(data[i].distance);
 						}
+
+						res.json({
+							status: "success",
+							data: FOODSEARCH
+						});
 					}
-					res.json({
-						status: "success",
-						data: FOODDISTANCE
-					});
+					else {
+						for (let i = 0; i < data.length; i++) {
+
+							var dist = data[i].distance.split(' ')[0];
+							if(Number(dist) < Number(distanceSelected)){
+								console.log("on");
+								FOODSEARCH[i].distance = data[i].distance;
+								FOODDISTANCE.push(FOODSEARCH[i]);
+							}
+						}
+						res.json({
+							status: "success",
+							data: FOODDISTANCE
+						});
+					}
+				})
+			})
+		}
+		else {
+
+			connection.query(searchQuery,(err, rows) => {
+				if (err) {
+					throw err;
 				}
+				if(!rows.length){
+					// console.log('rows = ' + rows.length);
+					res.json({
+						status: "error",
+						data: []
+					});
+					return;
+				}
+				let listId = [];
+				for (let i = 0; i < rows.length; i++) {
+					listId.push(rows[i].id);
+				}
+				for (let j = 0; j < FOODLIST.length; j++) {
+					if (listId.includes(FOODLIST[j].id)) {
+						// var foli = JSON.stringify(FOODLIST[j]);
+						var foli = FOODLIST[j];
+						console.log("foli " + j + ': ' + foli.street_name);
+						FOODSEARCH.push(foli);
+						destinations += (foli.street_number.length > 10) ? foli.street_number : (foli.street_number + "," + foli.street_name);
+						destinations += "," + foli.district_name + "," + foli.city_name + "|";
+					}
+				}
+
+				// console.log(origin);
+				// console.log(destinations);
+				// var url = googleMapQuery(origin, destinations);
+				// router.get(url, function(req, res){
+				// 	console.log(res);
+				// })
+				distance.get({
+					origin: StandardString(origin),
+					destination: StandardString(destinations),
+					mode: 'transit',
+					units: 'metric'
+				},
+				function(err, data) {
+					console.log('line 412');
+					if (err) return console.log(err);
+					console.log('line 414');
+					if(Number(distanceSelected) < 0){
+						for (let i = 0; i < data.length; i++) {
+							FOODSEARCH[i].distance = data[i].distance;
+
+							console.log(data[i].distance);
+						}
+
+						res.json({
+							status: "success",
+							data: FOODSEARCH
+						});
+					}
+					else {
+						for (let i = 0; i < data.length; i++) {
+
+							var dist = data[i].distance.split(' ')[0];
+							if(Number(dist) < Number(distanceSelected)){
+								console.log("on");
+								FOODSEARCH[i].distance = data[i].distance;
+								FOODDISTANCE.push(FOODSEARCH[i]);
+							}
+						}
+						res.json({
+							status: "success",
+							data: FOODDISTANCE
+						});
+					}
 
 
 				// console.log(FOODSEARCH);
 
 
 				// console.log(data);
-			});
+				});
 			// axios.get(url)
 			// .then(res => {
 			// 	// console.log(res);
@@ -454,8 +586,9 @@ module.exports = function(router, connection, passport){
 			//    console.log(error)
 			//    console.log("fail");
 			//  })
+			})
 
-		});
+		};
 
 	});
 
@@ -468,8 +601,8 @@ module.exports = function(router, connection, passport){
 				DatabaseQuery("SELECT id FROM foods WHERE category_id = ?", CATEGORY[index].cate_id)
 				.then(
 					rows =>{
-						console.log(rows);
-						console.log("i = " + index);
+						// console.log(rows);
+						// console.log("i = " + index);
 						let data = [];
 						let foods = []
 						let listId = [];
@@ -514,7 +647,7 @@ module.exports = function(router, connection, passport){
 		// console.log(CATEGORY);
 		var i = 0;
 		var len = CATEGORY.length;
-		console.log(CATEGORY[i].cate_id);
+		// console.log(CATEGORY[i].cate_id);
 		SequenceCategory(0, len, CATEGORY, FOODCATEGORYLIST);
 		res.json({
 			status: "success",
@@ -560,9 +693,13 @@ module.exports = function(router, connection, passport){
 		var destinations = "";
 		for (var i = 0; i < FOODLIST.length; i++) {
 			var foli = FOODLIST[i];
-			destinations += foli.street_number + "," + foli.street_name + "," + foli.district_name + "," + foli.city_name + "|";
+			destinations += (foli.street_number.length > 10) ? foli.street_number : (foli.street_number + "," + foli.street_name);
+			destinations += "," + foli.district_name + "," + foli.city_name + "|";
+			// destinations += foli.street_number + "," + foli.street_name + "," + foli.district_name + "," + foli.city_name + "|";
 
 		}
+		console.log(origin);
+		console.log(destinations);
 
 		distance.get({
 			origin: origin,
@@ -574,7 +711,7 @@ module.exports = function(router, connection, passport){
 			if (err) return console.log(err);
 			for (let i = 0; i < data.length; i++) {
 				var distance = data[i].distance;
-				if(Number(distance.split(" ")[0]) < 5){
+				if(Number(distance.split(" ")[0]) > 0){
 					var foli = FOODLIST[i];
 					foli.distance = distance;
 					if(Number(foli.id) !== Number(food_id)){
@@ -669,6 +806,29 @@ module.exports = function(router, connection, passport){
 			})
 		})
 	})
+
+	router.get('/food-post/:userid', function(req, res){
+		connection.query('SELECT id FROM foods WHERE owner_id = ?',req.params.userid,(err, rows) => {
+			if(err) throw err;
+			var data = [];
+			let listId = [];
+			for (let i = 0; i < rows.length; i++) {
+				listId.push(rows[i].id);
+			}
+			console.log(listId);
+			for (let j = 0; j < FOODLIST.length; j++) {
+				if (listId.includes(FOODLIST[j].id)) {
+					data.push(FOODLIST[j]);
+				}
+			}
+
+			res.json({
+				status: 'success',
+				data: data
+			})
+		})
+	})
+
 
 
 	router.get("/food/:id", function (req, res){

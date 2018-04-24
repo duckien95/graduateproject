@@ -17,7 +17,7 @@ const TOKEN_PATH = 'credentials.json';
 
 // var googleDrive = require('../config/DriveAPI/googleDrive.js')();
 
-module.exports = function(router, connection, passport, upload){
+module.exports = function(router, connection, upload){
 
     router.get('/test', upload.array('uploadFile', 10), function(req, res) {
         connection.query('UPDATE videos SET file_id = ? , folder_id = ? WHERE id = ?', ['mot', 'hai', 13], (err, row) => {

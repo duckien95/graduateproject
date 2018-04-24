@@ -15,7 +15,7 @@ const TOKEN_PATH = 'credentials.json';
 
 // var googleDrive = require('../config/DriveAPI/googleDrive.js')();
 
-module.exports = function(router, connection, passport, upload){
+module.exports = function(router, connection, upload){
 
     router.get('/', function(req, res){
 

@@ -25,7 +25,7 @@ app.use(bodyParser.urlencoded({ extended: true }));
 var dbconfig = require('./config/database.js');
 var connection = mysql.createConnection(dbconfig.connection);
 connection.query('USE ' + dbconfig.database);
-require('./config/passport')(connection, passport);
+// require('./config/passport')(connection, passport);
 
 
 var multer = require('multer');
@@ -63,8 +63,8 @@ app.use(cookieParser());
 app.use(session({secret: 'anystringoftext',
 				 saveUninitialized: true,
 				 resave: true}));
-app.use(passport.initialize());
-app.use(passport.session()); // persistent login sessions
+// app.use(passport.initialize());
+// app.use(passport.session()); // persistent login sessions
 app.use(flash()); // use connect-flash for flash messages stored in session
 
 app.engine('ejs', require('express-ejs-extend'));
@@ -165,21 +165,21 @@ app.post('/local', function(req, res){
 });
 
 var apiRouter  = express.Router();
-require('./routes/api')(apiRouter, connection, passport)
+require('./routes/api')(apiRouter, connection)
 app.use('/api',apiRouter);
 
 var authRouter  = express.Router();
-require('./routes/auth.js') (authRouter, connection, passport, upload);
+require('./routes/auth.js') (authRouter, connection, upload);
 app.use('/auth', authRouter);
 
 
 var uploadRouter = express.Router();
-require('./routes/upload.js') (uploadRouter, connection, passport, upload)
+require('./routes/upload.js') (uploadRouter, connection, upload)
 app.use('/upload', uploadRouter);
 
 
 var foodRouter = express.Router();
-require('./routes/food.js') (foodRouter, connection, passport, upload)
+require('./routes/food.js') (foodRouter, connection, upload)
 app.use('/food', foodRouter);
 
 // app.use('/', require('./routes/index.js'));
