@@ -426,6 +426,7 @@ module.exports = function(router, connection, upload){
                 // console.log(file);
                 // console.log('File Id: ',file.data.id);
                 let fileid = file.data.id;
+                console.log("image id : " + fileid);
                 connection.query('INSERT INTO images (file_id, food_id) VALUES (?,?)',
                     [fileid, foodid],
                     function(err, res, fields){
