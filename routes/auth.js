@@ -153,8 +153,8 @@ module.exports = function(router, connection, upload){
                 });
             } else {
                 connection.query(
-                    "INSERT INTO users (provider, first_name, last_name, email, token) VALUES (?,?,?,?,?)",
-                    [ provider, firstName, lastName, email, token ],
+                    "INSERT INTO users (provider, first_name, last_name, email, token, type) VALUES (?,?,?,?,?,?)",
+                    [ provider, firstName, lastName, email, token, 'normal' ],
                     function(err, rows){
                         if(err) {
                             res.status(401).json({
@@ -267,8 +267,8 @@ module.exports = function(router, connection, upload){
             } else {
 
                 connection.query(
-                    "INSERT INTO users ( username, password, provider, first_name, last_name, email ) values (?,?,?,?,?,?)",
-                    [username,  bcryptPassword, provider, firstname, lastname, email],
+                    "INSERT INTO users ( username, password, provider, first_name, last_name, email, type ) values (?,?,?,?,?,?,?)",
+                    [username,  bcryptPassword, provider, firstname, lastname, email, 'normal'],
                     function(err, rows){
                         if(err) {
                             res.status(401).json({

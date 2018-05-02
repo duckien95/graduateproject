@@ -262,6 +262,274 @@ module.exports = function(router, connection){
 
 		}
 	);
+
+	router.post('/change-permission/:userid/:permiss', function(req, res) {
+		const { userid, permiss } = req.params;
+		console.log(req.params);
+		console.log(userid);
+		console.log(permiss);
+		connection.query('update users set type = ? where id = ?',
+			[permiss, userid],
+			(err, row) => {
+				if (err) {
+					throw err;
+				}
+				res.status(200).json({
+					status : 'success'
+				})
+			}
+		)
+	})
+
+	var queryTest = 'select distinct(res.restaurant_name) from restaurants as res';
+
+	var RESTEST = [];
+	// connection.query(queryTest, (err, rows) => {
+	// 	if (err) {
+	// 		throw err;
+	// 	}
+	// 	SequenceRestaurantQuery(rows, 0, rows.length, RESTEST);
+	//
+	// });
+	router.get('/restaurant-list', function(req, res){
+		var RESTAURANTS = [];
+		connection.query(queryTest, (err, rows) => {
+			if (err) {
+				throw err;
+			}
+
+			SequenceRestaurantQuery(rows, 0, rows.length, RESTAURANTS, res);
+
+		});
+	})
+
+	function SequenceRestaurantQuery(rows, index, len, ListName, response){
+		// console.log('line 296');
+		if(index < len){
+			var row = rows[index];
+
+			// return new Promise( (resolve, reject) => {
+				DatabaseQuery('select res.*, str.street_name, str.district_name, str.city_name  from restaurants as res inner join streets as str on str.id = res.address_id where res.restaurant_name = ?',row.restaurant_name)
+				.then(
+					res => {
+						// console.log('res.length = ' + res.length);
+						var list = [];
+						for (var i = 0; i < res.length; i++) {
+							list.push(res[i].street_name + ', ' + res[i].district_name + ', ' + res[i].city_name);
+						}
+						// console.log('line 313');
+						// console.log('length of address = ' + res.length);
+						row.address = list;
+						row.foods = [];
+						ListFoodInRestaurant(res, 0, res.length, row, ListName);
+					}
+				).then(
+					res => {
+						SequenceRestaurantQuery(rows, index + 1, len, ListName, response)
+					}
+				)
+			// })
+
+		}
+		else {
+			response.json({
+				status : 'sucess',
+				data : ListName
+			})
+		}
+	}
+
+	function ListFoodInRestaurant(res, index, len, row, ListName){
+		if(index < len){
+			var resp = res[index];
+			return new Promise( (resolve, reject) => {
+				DatabaseQuery("SELECT fos.id, fos.name FROM foods AS fos where fos.restaurant_id = ?", resp.restaurant_id)
+				.then(
+					result => {
+						// console.log('result of index ' + res.length);
+						// console.log(result);
+						let list = {};
+						list.address = resp.street_name + ', ' + resp.district_name + ', ' + resp.city_name;
+						// list.push();
+						list.food_in_address = [];
+						for (var i = 0; i < result.length; i++) {
+							list.food_in_address.push({
+								food_id : result[i].id,
+								food_name :  result[i].name
+							})
+						}
+						// console.log(list);
+
+						row.foods.push(list);
+					}
+				).then(
+					result => {
+						// console.log('next TestREstaurant');
+						ListFoodInRestaurant(res, index + 1, len, row, ListName)
+					}
+				)
+			})
+		}
+		else{
+			// console.log('index = len in test');
+			ListName.push(row);
+		}
+	}
+
+
+	// var RESTAURANTLIST = [];
+	// var queryRestaurant = 'select res.*, str.street_name, str.district_name, str.city_name  from restaurants as res inner join streets as str on str.id = res.address_id';
+
+	// router.get('/restaurant-list', function(req, res){
+	//
+	// 	connection.query(queryRestaurant, (err, rows) => {
+	// 		if (err) {
+	// 			throw err;
+	// 		}
+	// 		console.log(rows.length);
+	// 		var i = 0;
+	// 		SequenceRestaurantQuery(rows, i, rows.length, RESTAURANTLIST)
+	//
+	// 		res.status(200).json({
+	// 			status : 'sucess',
+	// 			data : RESTAURANTLIST
+	// 		})
+	// 	})
+	//
+	// });
+
+	// connection.query(queryRestaurant, (err, rows) => {
+	// 	if (err) {
+	// 		throw err;
+	// 	}
+	// 	// console.log(rows);
+	// 	// console.log(rows.length);
+	// 	SequenceRestaurantQuery(rows, 0, rows.length, RESTAURANTLIST);
+	// });
+	//
+	// function SequenceRestaurantQuery(rows, index, len, ListName){
+	// 	// console.log('index restaurants = ' + index);
+	// 	if(index < len){
+	// 		var row = rows[index];
+	// 		row.address = row.street_name + ', ' + row.district_name + ', ' + row.city_name;
+	// 		return new Promise( (resolve, reject) => {
+	// 			DatabaseQuery("SELECT fos.id, fos.name FROM foods AS fos where fos.restaurant_id = ?", row.restaurant_id)
+	// 				.then( fos => {
+	// 					// console.log('line 284');
+	// 					// console.log(fos);
+	// 					if(fos !== undefined){
+	// 						let list = [];
+	// 						if(fos.length){
+	// 							// console.log("leng > 0");
+	// 							for (var i = 0; i < fos.length; i++) {
+	// 								list.push({
+	// 									food_id : fos[i].id,
+	// 									food_name : fos[i].name,
+	// 								});
+	// 							}
+	// 						}
+	// 						row.foods = list;
+	// 						ListName.push(row);
+	// 					}
+	//
+	// 				}).then(
+	// 					res => {
+	// 						return SequenceRestaurantQuery(rows, index + 1, len, ListName);
+	// 					}
+	// 				)
+	// 			}
+	// 		)
+	// 	}
+	// }
+
+
+	router.get('/user-list', function(req, res){
+
+		var USERLIST = [];
+		var queryUser = 'select * from users';
+		// queryUser += ' inner join foods as fos on fos.id = likes.food_id';
+		connection.query(queryUser, (err, rows) => {
+			if (err) {
+				throw err;
+			}
+			// console.log(rows.length);
+			SequenceUserQuery(rows, 0, rows.length, USERLIST, res);
+		});
+
+	});
+
+	function SequenceUserQuery(rows, index, len, ListName, response){
+		console.log('index user = ' + index);
+		if(index < len){
+			var row = rows[index];
+			// return new Promise( (resolve, reject) => {
+				DatabaseQuery("SELECT fos.id, fos.name FROM foods AS fos inner join likes on likes.food_id = fos.id where likes.user_id = ?", row.id)
+					.then( fos => {
+						// console.log('line 284');
+						// console.log(fos);
+						if(fos !== undefined){
+							let list = [];
+							if(fos.length){
+								// console.log("leng > 0");
+								for (var i = 0; i < fos.length; i++) {
+									list.push(fos[i]);
+								}
+							}
+							row.like = list;
+						}
+
+						return DatabaseQuery("SELECT fos.id, fos.name FROM foods AS fos inner join favorites on favorites.food_id = fos.id where favorites.user_id = ?", row.id);
+					})
+					.then(
+						fos => {
+							// console.log('line 300');
+							if(fos !== undefined){
+								let list = [];
+								if(fos.length){
+									// console.log("leng > 0");
+									for (var i = 0; i < fos.length; i++) {
+										list.push(fos[i]);
+									}
+								}
+								row.favorite = list;
+								// ListName.push(row);
+							}
+							// return true;
+							return DatabaseQuery("SELECT fos.id, fos.name FROM foods AS fos where fos.owner_id = ?", row.id);
+						}
+					).then(
+						fos => {
+							if(fos !== undefined){
+								let list = [];
+								if(fos.length){
+									// console.log("leng > 0");
+									for (var i = 0; i < fos.length; i++) {
+										list.push(fos[i]);
+									}
+								}
+								row.post = list;
+								ListName.push(row);
+							}
+						}
+					).then(
+						res => {
+							return SequenceUserQuery(rows, index + 1, len, ListName, response);
+						}
+					)
+			// 	}
+			// )
+		} else {
+			response.json({
+				status : 'success',
+				data : ListName
+			})
+		}
+	}
+
+
+
+
+
 	var queryAll = "SELECT fos.*,cate.cate_name, rest.restaurant_name, detail.detail_name, usr.username, usr.first_name, usr.last_name, str.street_name, str.district_name, str.city_name FROM foods AS fos";
 	queryAll += " INNER JOIN users AS usr ON fos.owner_id = usr.id";
 	queryAll += " INNER JOIN restaurants AS rest ON fos.restaurant_id = rest.restaurant_id";
@@ -277,11 +545,9 @@ module.exports = function(router, connection){
 		if (err) {
 			throw err;
 		}
-		var i = 0;
 
-		// console.log(rows.length);
-			SequenceQuery("SELECT img.file_id FROM images AS img WHERE img.food_id = ?", rows, i, rows.length, FOODLIST)
-			// console.log("i = " + i);
+		ConstSequenceQuery( rows, 0, rows.length, FOODLIST)
+
 	});
 
 
@@ -296,47 +562,315 @@ module.exports = function(router, connection){
 		})
 	}
 
-	function SequenceQuery(query, rows, index, len, ListName){
+	router.get("/testfood", function(req, res){
+		console.log('start');
+		var FOST = [];
+
+		DatabaseQuery(queryAll,)
+		.then(
+			rows => {
+				// console.log('aaaaaaaaaaaaaaaaa');
+				TestSequence(rows, 0, rows.length, FOST, res);
+
+				// console.log('FOST = ' + FOST.length);
+
+			}
+
+		)
+
+
+
+	});
+
+
+	function TestSequence(rows, index, len, ListName, res){
+
+			if(index < len){
+				console.log('index = ' + index);
+				var row = rows[index];
+				row.address = row.street_name + ', ' + row.district_name + ', ' + row.city_name;
+				row.owner_name = row.username == null ? (row.first_name + ' ' + row.last_name) : row.username;
+
+					DatabaseQuery("SELECT img.file_id, img.status FROM images AS img WHERE img.food_id = ?", row.id)
+						.then( imageRes => {
+							if(imageRes !== undefined){
+								let list = {};
+								list.pending = [];
+								list.approve = [];
+								if(imageRes.length){
+									// console.log("leng > 0");
+									for (var i = 0; i < imageRes.length; i++) {
+										var img = imageRes[i];
+										if (img.status === "pending") {
+											list.pending.push(img.file_id);
+										} else {
+											list.approve.push(img.file_id);
+										}
+
+									}
+								}
+								row.imageUrl = list;
+							}
+
+							return DatabaseQuery("SELECT vid.file_id FROM videos AS vid WHERE vid.food_id = ?", row.id);
+						})
+						.then( videoRes => {
+								// console.log(videoRes);
+
+								let list = {};
+								list.pending = [];
+								list.approve = [];
+								for (var i = 0; i < videoRes.length; i++) {
+									var video = videoRes[i];
+									if (video.status === "pending") {
+										list.pending.push(video.file_id);
+									} else {
+										list.approve.push(video.file_id);
+									}
+								}
+								row.videoUrl = list;
+
+								ListName.push(row);
+								return DatabaseQuery("SELECT vid.file_id FROM videos AS vid WHERE vid.food_id = ?", row.id);
+							}
+						)
+						.then(
+							resp =>  {
+								console.log(resp);
+								TestSequence(rows, index + 1, len, ListName, res)
+							}
+						)
+
+
+
+			}
+			else {
+				console.log('end lopp');
+
+				res.json({
+					status : 'success',
+					data : ListName
+				})
+
+				// return new Promise((resolve, reject) => {
+				// 	resolve(ListName);
+				// })
+				// console.log(ListName[15].id);
+
+			}
+
+	}
+
+	function ConstSequenceQuery( rows, index, len, ListName){
 
 		if(index < len){
-			return new Promise( (resolve, reject) => {
-				DatabaseQuery("SELECT img.file_id FROM images AS img WHERE img.food_id = ?", rows[index].id)
+			var row = rows[index];
+			row.address = row.street_name + ', ' + row.district_name + ', ' + row.city_name;
+			row.owner_name = row.username == null ? (row.first_name + ' ' + row.last_name) : row.username;
+
+			// return new Promise( (resolve, reject) => {
+				DatabaseQuery("SELECT img.file_id, img.status FROM images AS img WHERE img.food_id = ?", row.id)
 					.then( imageRes => {
 						if(imageRes !== undefined){
-							let list = [];
+							let list = {};
+							list.pending = [];
+							list.approve = [];
 							if(imageRes.length){
 								// console.log("leng > 0");
 								for (var i = 0; i < imageRes.length; i++) {
-									for (let [key, value] of Object.entries(imageRes[i])) {
-									   list.push(value);
-								   	}
+									var img = imageRes[i];
+									if (img.status === "pending") {
+										list.pending.push(img.file_id);
+									} else {
+										list.approve.push(img.file_id);
+									}
+
 								}
 							}
-							rows[index].imageUrl = list;
+							row.imageUrl = list;
 						}
 
-						return DatabaseQuery("SELECT vid.file_id FROM videos AS vid WHERE vid.food_id = ?", rows[index].id);
+						return DatabaseQuery("SELECT vid.file_id FROM videos AS vid WHERE vid.food_id = ?", row.id);
 					})
 					.then( videoRes => {
 							// console.log(videoRes);
-							resolve(true);
-							let list = [];
+
+							let list = {};
+							list.pending = [];
+							list.approve = [];
 							for (var i = 0; i < videoRes.length; i++) {
-								for (let [key, value] of Object.entries(videoRes[i])) {
-								   list.push(value);
+								var video = videoRes[i];
+								if (video.status === "pending") {
+									list.pending.push(video.file_id);
+								} else {
+									list.approve.push(video.file_id);
 								}
 							}
-							rows[index].videoUrl = list;
-							ListName.push(rows[index]);
+							row.videoUrl = list;
+							return DatabaseQuery('select usr.username, usr.first_name, usr.last_name, usr.id from users as usr inner join likes on likes.user_id = usr.id where likes.food_id = ?',row.id );
+							// ListName.push(row);
+						}
+					).then(
+						res => {
+							if(res !== undefined){
+								let list = [];
+								if(res.length){
+									// console.log("leng > 0");
+
+									for (var i = 0; i < res.length; i++) {
+										if(res[i].username === null){
+
+										}
+										let user = res[i];
+										list.push({
+											user_id : user.id,
+											username : user.username === null ? (user.first_name + ' ' + user.last_name) : user.username
+										});
+									}
+								}
+								row.like = list;
+								// ListName.push(row);
+							}
+							return DatabaseQuery('select usr.username, usr.first_name, usr.last_name, usr.id from users as usr inner join favorites on favorites.user_id = usr.id where favorites.food_id = ?',row.id );
+						}
+					).then(
+						res => {
+							if(res !== undefined){
+								let list = [];
+								if(res.length){
+									// console.log("leng > 0");
+									for (var i = 0; i < res.length; i++) {
+										let user = res[i];
+										list.push({
+											user_id : user.id,
+											username : user.username === null ? (user.first_name + ' ' + user.last_name) : user.username
+										});
+									}
+								}
+								row.favorite = list;
+								ListName.push(row);
+							}
 						}
 					)
-				})
-				.then(
-					res => {
-						// console.log(res);
-						SequenceQuery(query, rows, index + 1, len, ListName)
-					}
-				)
+					.then(
+						res => {
+							// console.log(res);
+							ConstSequenceQuery( rows, index + 1, len, ListName)
+						}
+					)
+			// 	}
+			// )
+		}
+
+
+	}
+
+
+	function SequenceQuery( rows, index, len, ListName, response){
+
+		if(index < len){
+			var row = rows[index];
+			row.address = row.street_name + ', ' + row.district_name + ', ' + row.city_name;
+			row.owner_name = row.username == null ? (row.first_name + ' ' + row.last_name) : row.username;
+
+			// return new Promise( (resolve, reject) => {
+				DatabaseQuery("SELECT img.file_id, img.status FROM images AS img WHERE img.food_id = ?", row.id)
+					.then( imageRes => {
+						if(imageRes !== undefined){
+							let list = {};
+							list.pending = [];
+							list.approve = [];
+							if(imageRes.length){
+								// console.log("leng > 0");
+								for (var i = 0; i < imageRes.length; i++) {
+									var img = imageRes[i];
+									if (img.status === "pending") {
+										list.pending.push(img.file_id);
+									} else {
+										list.approve.push(img.file_id);
+									}
+
+								}
+							}
+							row.imageUrl = list;
+						}
+
+						return DatabaseQuery("SELECT vid.file_id FROM videos AS vid WHERE vid.food_id = ?", row.id);
+					})
+					.then( videoRes => {
+							// console.log(videoRes);
+
+							let list = {};
+							list.pending = [];
+							list.approve = [];
+							for (var i = 0; i < videoRes.length; i++) {
+								var video = videoRes[i];
+								if (video.status === "pending") {
+									list.pending.push(video.file_id);
+								} else {
+									list.approve.push(video.file_id);
+								}
+							}
+							row.videoUrl = list;
+							return DatabaseQuery('select usr.username, usr.first_name, usr.last_name, usr.id from users as usr inner join likes on likes.user_id = usr.id where likes.food_id = ?',row.id );
+							// ListName.push(row);
+						}
+					).then(
+						res => {
+							if(res !== undefined){
+								let list = [];
+								if(res.length){
+									// console.log("leng > 0");
+
+									for (var i = 0; i < res.length; i++) {
+										if(res[i].username === null){
+
+										}
+										let user = res[i];
+										list.push({
+											user_id : user.id,
+											username : user.username === null ? (user.first_name + ' ' + user.last_name) : user.username
+										});
+									}
+								}
+								row.like = list;
+								// ListName.push(row);
+							}
+							return DatabaseQuery('select usr.username, usr.first_name, usr.last_name, usr.id from users as usr inner join favorites on favorites.user_id = usr.id where favorites.food_id = ?',row.id );
+						}
+					).then(
+						res => {
+							if(res !== undefined){
+								let list = [];
+								if(res.length){
+									// console.log("leng > 0");
+									for (var i = 0; i < res.length; i++) {
+										let user = res[i];
+										list.push({
+											user_id : user.id,
+											username : user.username === null ? (user.first_name + ' ' + user.last_name) : user.username
+										});
+									}
+								}
+								row.favorite = list;
+								ListName.push(row);
+							}
+						}
+					)
+					.then(
+						res => {
+							// console.log(res);
+							SequenceQuery( rows, index + 1, len, ListName, response)
+						}
+					)
+			// 	}
+			// )
+		}
+		else{
+			response.json({
+				status: 'success',
+				foods : ListName
+			})
 		}
 
 	}
@@ -823,46 +1357,66 @@ module.exports = function(router, connection){
 	})
 
 	router.get('/food-post/:userid', function(req, res){
-		connection.query('SELECT id FROM foods WHERE owner_id = ?',req.params.userid,(err, rows) => {
-			if(err) throw err;
-			var data = [];
-			let listId = [];
-			for (let i = 0; i < rows.length; i++) {
-				listId.push(rows[i].id);
-			}
-			console.log(listId);
-			for (let j = 0; j < FOODLIST.length; j++) {
-				if (listId.includes(FOODLIST[j].id)) {
-					data.push(FOODLIST[j]);
-				}
-			}
+		var FOODPOST = [];
+		queryPost = queryAll + " WHERE owner_id = ? ";
 
-			res.json({
-				status: 'success',
-				data: data
-			})
+		connection.query(queryPost, req.params.userid, (err, rows) => {
+				if (err) {
+					throw err;
+				}
+				if (!rows.length) {
+					res.json({
+						status: "error",
+						data: []
+					});
+					return;
+				}
+				else {
+					SequenceQuery(rows, 0, rows.length, FOODPOST, res);
+				}
 		})
+		// connection.query('SELECT id FROM foods WHERE owner_id = ?',req.params.userid,(err, rows) => {
+		// 	if(err) throw err;
+		// 	var data = [];
+		// 	let listId = [];
+		// 	for (let i = 0; i < rows.length; i++) {
+		// 		listId.push(rows[i].id);
+		// 	}
+		// 	console.log(listId);
+		// 	for (let j = 0; j < FOODLIST.length; j++) {
+		// 		if (listId.includes(FOODLIST[j].id)) {
+		// 			data.push(FOODLIST[j]);
+		// 		}
+		// 	}
+		//
+		// 	res.json({
+		// 		status: 'success',
+		// 		data: data
+		// 	})
+		// })
 	})
 
 
 
 	router.get("/food/:id", function (req, res){
 		// console.log(req.params.id);
-		// console.log(FOODLIST[3].id);
-
+		// console.log(FOODLIST[3].id === Number(req.params.id));
+		// // console.log(FOODLIST[3].id);
+		//
 		// for (let j = 0; j < FOODLIST.length; j++) {
-		// 	if (req.params.id === FOODLIST[j].id) {
-		// 		console.log(req.params.id === FOODLIST[j].id);
-		// 		// res.status(200).json({
-		// 		// 	status: "success",
-		// 		// 	data: FOODLIST[j]
-		// 		// })
+		// 	if ( Number(req.params.id) === FOODLIST[j].id) {
+		// 		// console.log(req.params.id === FOODLIST[j].id);
+		// 		res.status(200).json({
+		// 			status: "success",
+		// 			data: FOODLIST[j]
+		// 		})
+		// 		res.end();
 		// 	}
 		// }
 
 		var foodData = [];
 		var foodId = req.params.id;
-		// console.log(req.params);
+		console.log(req.params.id);
 		var query = "SELECT fos.*,cate.cate_name, rest.restaurant_name, detail.detail_name, usr.username,str.street_name, str.district_name, str.city_name FROM foods AS fos";
 		query += " INNER JOIN users AS usr ON fos.owner_id = usr.id";
 		query += " INNER JOIN restaurants AS rest ON fos.restaurant_id = rest.restaurant_id";
@@ -872,35 +1426,69 @@ module.exports = function(router, connection){
 		query += " INNER JOIN streets AS str ON fos.street_id = str.street_id AND fos.district_id = str.district_id AND fos.city_id = str.city_id";
 
 		query +=  " WHERE fos.id = " + foodId;
+		// console.log(query);
 
 		DatabaseQuery(query).then(
 			res => {
+				// console.log(res);
 				foodData = res[0];
-				return DatabaseQuery("SELECT img.file_id FROM images AS img WHERE img.food_id = ?", foodId);
+				return DatabaseQuery("SELECT img.file_id, img.status FROM images AS img WHERE img.food_id = ?", foodId);
 			}
 		).then(
 			imageRes => {
-				// console.log(imageRes);
+				// console.log(foodData);
 				let list = [];
-				for (var i = 0; i < imageRes.length; i++) {
-					for (let [key, value] of Object.entries(imageRes[i])) {
-					   list.push(value);
-					   // list[i] = value;
+				let pending = [];
+				let approve = [];
+				if(imageRes.length){
+					// console.log("leng > 0");
+					for (var i = 0; i < imageRes.length; i++) {
+						var img = imageRes[i];
+						if (img.status === "pending") {
+							pending.push(img.file_id);
+						} else {
+							approve.push(img.file_id);
+						}
+
 					}
 				}
-				foodData.imageUrl = list;
-				return DatabaseQuery("SELECT vid.file_id FROM videos AS vid WHERE vid.food_id = ?", foodId);
+
+				// foodData.imageUrl =[];
+
+				foodData.imageUrl = {
+					pending : pending,
+					approve : approve
+				};
+
+				// foodData.imageUrl = list;
+				return DatabaseQuery("SELECT vid.file_id, vid.status FROM videos AS vid WHERE vid.food_id = ?", foodId);
 			}
 		)
 		.then(
 			videoRes => {
 				let list = [];
+				let pending = [];
+				let approve = [];
 				for (var i = 0; i < videoRes.length; i++) {
-					for (let [key, value] of Object.entries(videoRes[i])) {
-					   list.push(value);
+					var video = videoRes[i];
+					if (video.status === "pending") {
+						pending.push( video.file_id );
+					} else {
+						approve.push( video.file_id );
 					}
 				}
-				foodData.videoUrl = list;
+				foodData.videoUrl = {
+					pending : pending,
+					approve : approve
+				}
+
+				// foodData.videoUrl.push({
+				// 	pending : pending,
+				// 	approve : approve
+				// })
+
+
+				// foodData.videoUrl = list;
 
 				res.status(200).json({
 					status: "success",
@@ -911,80 +1499,94 @@ module.exports = function(router, connection){
 	});
 
 	router.get("/food-list", function(req, res){
-		res.status(200).json({
-			status: 'success',
-			foods : FOODLIST
+		var FOODS = [];
+		connection.query(queryAll,(err, rows) => {
+			if (err) {
+				throw err;
+			}
+			SequenceQuery( rows, 0, rows.length, FOODS, res);
+
 		});
+
+		// res.status(200).json({
+		// 	status: 'success',
+		// 	foods : FOODLIST
+		// });
+
+
+
 	});
 
 	router.get('/food-approve', function(req, res) {
 		var FOODAPPROVE = [];
-		connection.query('SELECT id FROM foods WHERE status = ?', 'approve', (err, rows) => {
-			if (err) {
-				throw err;
-			}
-			if (!rows.length) {
-				res.json({
-					status: "error",
-					data: []
-				});
-				return;
-			}
+		queryApprove = queryAll + " WHERE fos.status = ? ";
 
-			let listId = [];
-			for (let i = 0; i < rows.length; i++) {
-				listId.push(rows[i].id);
-			}
-			for (let j = 0; j < FOODLIST.length; j++) {
-				if (listId.includes(FOODLIST[j].id)) {
-					// var foli = JSON.stringify(FOODLIST[j]);
-					var foli = FOODLIST[j];
-					console.log("foli " + j + ': ' + foli.street_name);
-					FOODAPPROVE.push(foli);
+		connection.query(queryApprove, 'approve', (err, rows) => {
+				if (err) {
+					throw err;
 				}
-			}
-
-			res.json({
-				status: 'success',
-				foods : FOODAPPROVE
-			})
-		});
+				if (!rows.length) {
+					res.json({
+						status: "error",
+						data: []
+					});
+					return;
+				}
+				else {
+					SequenceQuery(rows, 0, rows.length, FOODAPPROVE, res);
+				}
+		})
+		// connection.query('SELECT id FROM foods WHERE status = ?', 'approve', (err, rows) => {
+		// 	if (err) {
+		// 		throw err;
+		// 	}
+		// 	if (!rows.length) {
+		// 		res.json({
+		// 			status: "error",
+		// 			data: []
+		// 		});
+		// 		return;
+		// 	}
+		//
+		// 	let listId = [];
+		// 	for (let i = 0; i < rows.length; i++) {
+		// 		listId.push(rows[i].id);
+		// 	}
+		// 	for (let j = 0; j < FOODLIST.length; j++) {
+		// 		if (listId.includes(FOODLIST[j].id)) {
+		// 			// var foli = JSON.stringify(FOODLIST[j]);
+		// 			var foli = FOODLIST[j];
+		// 			console.log("foli " + j + ': ' + foli.street_name);
+		// 			FOODAPPROVE.push(foli);
+		// 		}
+		// 	}
+		//
+		// 	res.json({
+		// 		status: 'success',
+		// 		foods : FOODAPPROVE
+		// 	})
+		// });
 	})
 
 	router.get("/food-pending", function(req, res){
 		var FOODPENDING = [];
-		connection.query('SELECT id FROM foods WHERE status = ?', 'pending', (err, rows) => {
-			if (err) {
-				throw err;
-			}
-			if (!rows.length) {
-				res.json({
-					status: "error",
-					data: []
-				});
-				return;
-			}
+		queryPending = queryAll + " WHERE fos.status = ? ";
 
-			let listId = [];
-			for (let i = 0; i < rows.length; i++) {
-				listId.push(rows[i].id);
-			}
-			for (let j = 0; j < FOODLIST.length; j++) {
-				if (listId.includes(FOODLIST[j].id)) {
-					// var foli = JSON.stringify(FOODLIST[j]);
-					var foli = FOODLIST[j];
-					console.log("foli " + j + ': ' + foli.street_name);
-					FOODPENDING.push(foli);
+		connection.query(queryPending, 'pending', (err, rows) => {
+				if (err) {
+					throw err;
 				}
-			}
-
-			res.json({
-				status: 'success',
-				foods : FOODPENDING
-			})
-		});
-
-
+				if (!rows.length) {
+					res.json({
+						status: "error",
+						data: []
+					});
+					return;
+				}
+				else {
+					SequenceQuery(rows, 0, rows.length, FOODPENDING, res);
+				}
+		})
 
 	});
 
