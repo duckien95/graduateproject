@@ -29,19 +29,8 @@ module.exports = function(router, connection, upload){
 
     router.post('/edit-user', (req, res) => {
         console.log(req.body);
-        const { userId, firstname, lastname, email, oldPassword, newPassword, confirmPassword, provider, username, type} = req.body;
+        const { userId, firstname, lastname, email, oldPassword, newPassword, confirmPassword} = req.body;
 
-        var data = {
-            id : userId,
-            first_name : firstname,
-            last_name : lastname,
-            email : email,
-            provider : provider,
-            type : type
-        };
-        if(username){
-            data.username = username;
-        }
         connection.query("SELECT * FROM users WHERE id = ?",userId, function(err, rows, fields){
 
             if (err) {
@@ -74,13 +63,13 @@ module.exports = function(router, connection, upload){
                             throw err;
                         }
 
-                        let token = jwt.sign({ username : rows[0].username , password: newPassword }, 'keyboard cat 4 ever', { expiresIn: 3600 });
+                        let token = jwt.sign({ username : rows[0].username , password: newPassword }, 'keyboard cat 4 ever', { expiresIn: 86400 });
                         console.log(token);
                         res.json({
                             success: true,
                             err: null,
                             token,
-                            user : data
+                            user_id : userId
                         })
                     }
                 );
@@ -94,41 +83,25 @@ module.exports = function(router, connection, upload){
                             throw err;
                         }
 
-                        let token = jwt.sign({ username : email , password: userId }, 'keyboard cat 4 ever', { expiresIn: 3600 });
+                        let token = jwt.sign({ username : email , password: userId }, 'keyboard cat 4 ever', { expiresIn: 86400 });
 
                         res.json({
                             success: true,
                             err: null,
                             token,
-                            user : data
+                            user_id : userId
                         })
 
                     }
                 );
             }
-
-            // let token = jwt.sign({ username : data.username , password: data.newPassword }, 'keyboard cat 4 ever', { expiresIn: 3600 });
-            //
-            // res.status(200).json({
-            //     success: true,
-            //     err: null,
-            //     token,
-            //     user : rows[0]
-            // });
-
-
         });
     })
 
     router.post('/login-google-facebook', (req, res) => {
         // console.log(req.body);
-        // console.log(req.body);
-        const {email, firstName, lastName, provider, token } = req.body;
-        // console.log(email);
-        // console.log(firstName);
-        // console.log(lastName);
-        // console.log(provider);
-        // console.log(token);
+        const {email, firstname, lastname, provider, token } = req.body;
+
         var data = req.body;
         // var bcryptPassword = bcrypt.hashSync(password);
 
@@ -140,21 +113,18 @@ module.exports = function(router, connection, upload){
             // console.log('line 42');
             console.log(rows);
             if (rows.length) {
-                let token = jwt.sign({ username : data.email , password: data.token }, 'keyboard cat 4 ever', { expiresIn: 3600 });
-                // console.log(rows.id + '----' + rows[0].id);
-                data.id = rows[0].id
-                // console.log('line 46'  + token);
+                let token = jwt.sign({ username : data.email , password: data.token }, 'keyboard cat 4 ever', { expiresIn: 86400 });
 
                 res.status(200).json({
                     success: true,
                     err: null,
                     token,
-                    user : data
+                    user_id : rows[0].id
                 });
             } else {
                 connection.query(
                     "INSERT INTO users (provider, first_name, last_name, email, token, type) VALUES (?,?,?,?,?,?)",
-                    [ provider, firstName, lastName, email, token, 'normal' ],
+                    [ provider, firstname, lastname, email, token, 'normal' ],
                     function(err, rows){
                         if(err) {
                             res.status(401).json({
@@ -166,9 +136,9 @@ module.exports = function(router, connection, upload){
                         // console.log('line 67');
                         // console.log(rows);
 
-                        data["id"] = rows.insertId;
+                        // data["id"] = rows.insertId;
 
-                        let token = jwt.sign({ username : data.email , password: data.token }, 'keyboard cat 4 ever', { expiresIn: 3600 });
+                        let token = jwt.sign({ username : data.email , password: data.token }, 'keyboard cat 4 ever', { expiresIn: 86400 });
 
                         // console.log('line 71' + token);
 
@@ -176,7 +146,7 @@ module.exports = function(router, connection, upload){
                             success: true,
                             err: null,
                             token,
-                            user : data
+                            user_id : rows.insertId
                         });
                     }
                 );
@@ -218,13 +188,14 @@ module.exports = function(router, connection, upload){
                 return;
             }
 
-            let token = jwt.sign({ username : data.username , password: data.password }, 'keyboard cat 4 ever', { expiresIn: 3600 });
+            let token = jwt.sign({ username : data.username , password: data.password }, 'keyboard cat 4 ever', { expiresIn: 86400 });
+            console.log(rows[0].id);
 
             res.status(200).json({
                 success: true,
                 err: null,
                 token,
-                user : rows[0]
+                user_id : rows[0].id
             });
 
 
@@ -278,7 +249,7 @@ module.exports = function(router, connection, upload){
                             });
                         }
 
-                        data["id"] = rows.insertId;
+                        // data["id"] = rows.insertId;
 
                         let token = jwt.sign({ username : data.username , password: data.password }, 'keyboard cat 4 ever', { expiresIn: 3600 });
 
@@ -288,7 +259,7 @@ module.exports = function(router, connection, upload){
                             success: true,
                             err: null,
                             token,
-                            user : data
+                            user_id : rows.insertId
                         });
                     }
                 );
@@ -299,98 +270,74 @@ module.exports = function(router, connection, upload){
 
     });
 
-    router.post('/localll', function(req, res){
-        console.log(req.body);
-        var data = req.body;
-        var insertData = [];
-        for (let [key, value] of Object.entries(data)) {
-           insertData.push(value);
-        }
-        console.log(insertData);
-        console.log("loooooooo");
-        connection.query(
-            "INSERT INTO users ( username, password, provider, first_name, last_name, email ) values (?,?,?,?,?,?)",
-            insertData,
-            function(err, rows){
-                if(err) throw err;
-
-                let token = jwt.sign({ username : data.username , password: data.password }, 'keyboard cat 4 ever', { expiresIn: 600 });
-                res.json({
-                    sucess: true,
-                    err: null,
-                    token
-                });
-            }
-        );
-
-    });
-
-	router.post('/signup', function(req, res){
-			// var data = JSON.parse(req.body);
-		console.log(req.body);
-        console.log("disssss");
-
-		var data = req.body;
-		for(var key in data) {
-		    break;
-		}
-		data = JSON.parse( key );
-		// data = data.userData;
-		console.log(data);
-		// console.log(data.firstName);
-		var insert = [];
-		for (let [key, value] of Object.entries(data)) {
-		   insert.push(value);
-		}
 
 
-		// console.log(insert);
-
-		connection.query(
-			"SELECT * FROM users WHERE email = ?",
-			data.email,
-			function(err, row){
-				if(err) {
-					throw err;
-					res.status(401).json({
-		                sucess: false,
-		                token: null,
-		                err: 'Something went wrong'
-		            });
-				}
-				if(row.length){
-					let token = jwt.sign({ id: data.token, username: data.email }, 'keyboard cat 4 ever', { expiresIn: 600 }); // Sigining the token
-					console.log("token = " + token);
-					res.json({
-						sucess: true,
-						err: null,
-						token
-					});
-					return;
-				}
-				else {
-
-					connection.query(
-						"INSERT INTO users ( first_name, last_name, email, token, imageUrl, provider ) values (?,?,?,?,?,?)",
-						insert,
-						function(err, rows){
-							if(err) throw err;
-
-							let token = jwt.sign({ id: data.token, username: data.email }, 'keyboard cat 4 ever', { expiresIn: 129600 });
-							res.json({
-								sucess: true,
-								err: null,
-								token
-							});
-							return;
-						}
-					);
-
-				}
-
-			}
-		);
-	});
+	// router.post('/signup', function(req, res){
+	// 		// var data = JSON.parse(req.body);
+	// 	console.log(req.body);
+    //     console.log("disssss");
+    //
+	// 	var data = req.body;
+	// 	for(var key in data) {
+	// 	    break;
+	// 	}
+	// 	data = JSON.parse( key );
+	// 	// data = data.userData;
+	// 	console.log(data);
+	// 	// console.log(data.firstName);
+	// 	var insert = [];
+	// 	for (let [key, value] of Object.entries(data)) {
+	// 	   insert.push(value);
+	// 	}
+    //
+    //
+	// 	// console.log(insert);
+    //
+	// 	connection.query(
+	// 		"SELECT * FROM users WHERE email = ?",
+	// 		data.email,
+	// 		function(err, row){
+	// 			if(err) {
+	// 				throw err;
+	// 				res.status(401).json({
+	// 	                sucess: false,
+	// 	                token: null,
+	// 	                err: 'Something went wrong'
+	// 	            });
+	// 			}
+	// 			if(row.length){
+	// 				let token = jwt.sign({ id: data.token, username: data.email }, 'keyboard cat 4 ever', { expiresIn: 600 }); // Sigining the token
+	// 				console.log("token = " + token);
+	// 				res.json({
+	// 					sucess: true,
+	// 					err: null,
+	// 					token
+	// 				});
+	// 				return;
+	// 			}
+	// 			else {
+    //
+	// 				connection.query(
+	// 					"INSERT INTO users ( first_name, last_name, email, token, imageUrl, provider ) values (?,?,?,?,?,?)",
+	// 					insert,
+	// 					function(err, rows){
+	// 						if(err) throw err;
+    //
+	// 						let token = jwt.sign({ id: data.token, username: data.email }, 'keyboard cat 4 ever', { expiresIn: 129600 });
+	// 						res.json({
+	// 							sucess: true,
+	// 							err: null,
+	// 							token
+	// 						});
+	// 						return;
+	// 					}
+	// 				);
+    //
+	// 			}
+    //
+	// 		}
+	// 	);
+	// });
 
 	router.get('/logout', function(req, res){
 		req.logout();

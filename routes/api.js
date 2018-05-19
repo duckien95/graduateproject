@@ -281,19 +281,11 @@ module.exports = function(router, connection){
 		)
 	})
 
-	var queryTest = 'select distinct(res.restaurant_name) from restaurants as res';
+	var queryRestaurant = 'select distinct(res.restaurant_name) from restaurants as res';
 
-	var RESTEST = [];
-	// connection.query(queryTest, (err, rows) => {
-	// 	if (err) {
-	// 		throw err;
-	// 	}
-	// 	SequenceRestaurantQuery(rows, 0, rows.length, RESTEST);
-	//
-	// });
 	router.get('/restaurant-list', function(req, res){
 		var RESTAURANTS = [];
-		connection.query(queryTest, (err, rows) => {
+		connection.query(queryRestaurant, (err, rows) => {
 			if (err) {
 				throw err;
 			}
@@ -458,6 +450,23 @@ module.exports = function(router, connection){
 
 	});
 
+	router.get('/user/:user_id', function(req, res){
+
+		var USERLIST = [];
+		// queryUser += ' inner join foods as fos on fos.id = likes.food_id';
+		connection.query('select * from users where id = ?', req.params.user_id, (err, rows) => {
+			if (err) {
+				throw err;
+			}
+			// console.log(rows.length);
+			res.json({
+				status: 'success',
+				data: rows[0]
+			})
+		});
+
+	});
+
 	function SequenceUserQuery(rows, index, len, ListName, response){
 		console.log('index user = ' + index);
 		if(index < len){
@@ -529,12 +538,12 @@ module.exports = function(router, connection){
 
 
 
-
-	var queryAll = "SELECT fos.*,cate.cate_name, rest.restaurant_name, detail.detail_name, usr.username, usr.first_name, usr.last_name, str.street_name, str.district_name, str.city_name FROM foods AS fos";
+		var queryAll = "SELECT fos.*,cate.cate_name, rest.restaurant_name, usr.username, usr.first_name, usr.last_name, str.street_name, str.district_name, str.city_name FROM foods AS fos";
+	// var queryAll = "SELECT fos.*,cate.cate_name, rest.restaurant_name, detail.detail_name, usr.username, usr.first_name, usr.last_name, str.street_name, str.district_name, str.city_name FROM foods AS fos";
 	queryAll += " INNER JOIN users AS usr ON fos.owner_id = usr.id";
 	queryAll += " INNER JOIN restaurants AS rest ON fos.restaurant_id = rest.restaurant_id";
 	queryAll += " INNER JOIN category AS cate ON fos.category_id = cate.id"
-	queryAll += " INNER JOIN detail_category AS detail ON fos.detail_category_id = detail.id";
+	// queryAll += " INNER JOIN detail_category AS detail ON fos.detail_category_id = detail.id";
 	queryAll += " INNER JOIN streets AS str ON fos.street_id = str.street_id AND fos.district_id = str.district_id AND fos.city_id = str.city_id";
 	// queryAll += " WHERE fos.status = ? ";
 	// var pending = 'pending';
@@ -1417,16 +1426,18 @@ module.exports = function(router, connection){
 		var foodData = [];
 		var foodId = req.params.id;
 		console.log(req.params.id);
-		var query = "SELECT fos.*,cate.cate_name, rest.restaurant_name, detail.detail_name, usr.username,str.street_name, str.district_name, str.city_name FROM foods AS fos";
+		var query = "SELECT fos.*,cate.cate_name, rest.restaurant_name, usr.username,str.street_name, str.district_name, str.city_name FROM foods AS fos";
+		// var query = "SELECT fos.*,cate.cate_name, rest.restaurant_name, detail.detail_name, usr.username,str.street_name, str.district_name, str.city_name FROM foods AS fos";
 		query += " INNER JOIN users AS usr ON fos.owner_id = usr.id";
 		query += " INNER JOIN restaurants AS rest ON fos.restaurant_id = rest.restaurant_id";
 		query += " INNER JOIN category AS cate ON fos.category_id = cate.id";
-		query += " INNER JOIN detail_category AS detail ON fos.detail_category_id = detail.id";
+		// query += " INNER JOIN detail_category AS detail ON fos.detail_category_id = detail.id";
 		// query += " INNER JOIN detail_category AS detail ON fos.detail_category_id = detail.id";
 		query += " INNER JOIN streets AS str ON fos.street_id = str.street_id AND fos.district_id = str.district_id AND fos.city_id = str.city_id";
 
 		query +=  " WHERE fos.id = " + foodId;
 		// console.log(query);
+		var listFileId = [];
 
 		DatabaseQuery(query).then(
 			res => {
@@ -1437,7 +1448,7 @@ module.exports = function(router, connection){
 		).then(
 			imageRes => {
 				// console.log(foodData);
-				let list = [];
+				// let list = [];
 				let pending = [];
 				let approve = [];
 				if(imageRes.length){
@@ -1449,6 +1460,7 @@ module.exports = function(router, connection){
 						} else {
 							approve.push(img.file_id);
 						}
+						listFileId.push(img.file_id)
 
 					}
 				}
@@ -1476,11 +1488,14 @@ module.exports = function(router, connection){
 					} else {
 						approve.push( video.file_id );
 					}
+					listFileId.push(video.file_id);
 				}
 				foodData.videoUrl = {
 					pending : pending,
 					approve : approve
 				}
+
+				foodData.listFileId = listFileId;
 
 				// foodData.videoUrl.push({
 				// 	pending : pending,
@@ -1589,6 +1604,37 @@ module.exports = function(router, connection){
 		})
 
 	});
+
+	router.post("/add-comment", function(req, res){
+		// console.log(req.body);
+		const {user_id, username, content, food_id, date } = req.body;
+		// INSERT INTO likes(user_id, food_id) VALUES(?,?)
+		connection.query('insert into comments(user_id, username, content, food_id, date) values(?,?,?,?,?) ',
+			[ user_id, username, content, food_id, date ],
+			function(err, rows){
+				if (err) {
+					throw err;
+				}
+				res.json({
+					status :'success'
+				})
+			}
+		)
+	});
+	router.get('/comments/:food_id', function(req, res) {
+		connection.query('select * from comments where food_id  = ?',
+			req.params.food_id,
+			function(err, rows){
+				if (err) {
+					throw err;
+				}
+				res.json({
+					status :'success',
+					data: rows
+				})
+			}
+		)
+	})
 
 	router.get('/cities', function (req, res) {
 		res.status(200).json({

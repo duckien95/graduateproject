@@ -84,33 +84,77 @@ module.exports = function(router, connection, upload){
         })
     });
 
-    router.get('/delete/:id', function(req, res){
-        console.log(req.params.id);
+    router.post('/delete', function(req, res){
+        const { food_id, listFileId } = req.body;
+        // console.log(req.body);
+        var len = listFileId.length;
+        for (var i = 0; i < len; i++) {
+            // console.log(listFileId[i]);
+            deleteAllInFood(listFileId[i], i, len - 1, food_id, res);
+        }
         var query = "DELETE FROM foods WHERE foods.id = " + req.params.id;
 
-        connection.query(query, (err, rows) => {
-            if(err){
-                throw err;
-            }
-            console.log(rows);
-            res.json({
-                status: "success",
-                msg: "Xoá thành công"
-            })
-        })
+        // connection.query(query, (err, rows) => {
+        //     if(err){
+        //         throw err;
+        //     }
+        //     console.log(rows);
+        //     res.json({
+        //         status: "success",
+        //         msg: "Xoá thành công"
+        //     })
+        // })
     })
 
-    router.get('/approve/:id', function(req, res){
-        connection.query("UPDATE foods SET status = ? WHERE id = ?",['approve', req.params.id], (err, rows) => {
-            if(err){
-                throw err;
-            }
-            console.log(rows);
-            res.json({
-                status: "success",
-                msg: "Bài viết đã được duyệt"
+    function DatabaseQuery(query, args){
+        return new Promise( (resolve, reject) => {
+            connection.query(query, args, (err, rows) => {
+                if (err) {
+                    return reject(err);
+                }
+                resolve(rows);
             })
         })
+    }
+
+    router.get('/approve/:id', function(req, res){
+
+        var food_id = req.params.id;
+        DatabaseQuery("UPDATE images SET status = ? WHERE food_id = ?",['approve', food_id])
+        .then(
+            row => {
+                DatabaseQuery("UPDATE videos SET status = ? WHERE food_id = ?",['approve', food_id])
+            }
+        )
+        .then(
+            row => {
+                return DatabaseQuery("UPDATE foods SET status = ? WHERE id = ?",['approve', food_id])
+            }
+        )
+        .then(
+            row => {
+                res.json({
+                    status: "success",
+                    msg: "Bài viết đã được duyệt"
+                })
+            }
+        )
+        // connection.query("UPDATE images SET status = ? WHERE food_id = ?",['approve', req.params.id], (err, rows) => {
+        //     if(err){
+        //         throw err;
+        //     }
+        //     console.log(rows);
+        // })
+        // connection.query("UPDATE foods SET status = ? WHERE id = ?",['approve', req.params.id], (err, rows) => {
+        //     if(err){
+        //         throw err;
+        //     }
+        //     console.log(rows);
+        //     res.json({
+        //         status: "success",
+        //         msg: "Bài viết đã được duyệt"
+        //     })
+        // })
     })
 
     router.post('/image/approve/:food_id/:file_id', function(req, res){
@@ -128,19 +172,15 @@ module.exports = function(router, connection, upload){
         })
     })
 
+    router.get('delete/:file_id', function(req, res){
+        const { file_id } = req.params;
+        deleteFileOnDrive(file_id);
+    });
+
     router.post('/image/disapprove/:food_id/:file_id', function(req, res){
         console.log(req.params);
         const {food_id, file_id } = req.params;
-        connection.query("DELETE from images WHERE food_id = ? and file_id = ?",[food_id, file_id], (err, rows) => {
-            if(err){
-                throw err;
-            }
-            // console.log(rows);
-            res.json({
-                status: "success",
-                msg: "Ảnh đã được loại"
-            })
-        })
+        deleteImageOnDrive(food_id, file_id, res);
     })
 
     router.post('/video/approve/:food_id/:file_id', function(req, res){
@@ -161,16 +201,7 @@ module.exports = function(router, connection, upload){
     router.post('/video/disapprove/:food_id/:file_id', function(req, res){
         console.log(req.params);
         const {food_id, file_id } = req.params;
-        connection.query("DELETE from videos WHERE food_id = ? and file_id = ?",[food_id, file_id], (err, rows) => {
-            if(err){
-                throw err;
-            }
-            // console.log(rows);
-            res.json({
-                status: "success",
-                msg: "Ảnh đã được loại"
-            })
-        })
+        deleteVideoOnDrive(food_id, file_id, res);
     })
 
     router.post('/add-media-file', upload.array('uploadFile', 50), function(req, response){
@@ -434,8 +465,8 @@ module.exports = function(router, connection, upload){
     }
 
     function uploadImage (fileName, filePath, mimeType, foodid, owner_id) {
-        console.log(process.cwd());
-        console.log(__dirname);
+        // console.log(process.cwd());
+        // console.log(__dirname);
         fs.readFile("routes/client_secret.json", (err, content) => {
             if (err) return console.log('Error loading client secret file:', err);
             // console.log(JSON.parse(content));
@@ -446,14 +477,155 @@ module.exports = function(router, connection, upload){
         // authorize(JSON.parse(file), addVideo, fileName, filePath, mimeType, foodid);
     }
 
+    function deleteImageOnDrive(food_id, file_id, res) {
+        fs.readFile("routes/client_secret.json", (err, content) => {
+            if (err) return console.log('Error loading client secret file:', err);
+            console.log(content);
+            // Authorize a client with credentials, then call the Google Drive API.
+            // authorize(JSON.parse(content), listFiles);
+            authorize(JSON.parse(content), deleteImage, food_id, file_id, res);
+        });
+
+        // authorize(JSON.parse(file), addVideo, fileName, filePath, mimeType, foodid);
+    }
+
+    function deleteImage(auth, food_id, file_id, response){
+        // console.log('food_id ' + food_id);
+        // console.log('file_id ' + file_id);
+        const drive = google.drive({ version: 'v3', auth });
+        drive.files.delete({
+                'fileId': file_id
+            }, function(err){
+                if(err){
+                    console.log('errors');
+                    // console.log(err);
+                    response.json({
+                        status : 'fail',
+                        msg: 'Xóa ảnh không thành công'
+                    });
+                }
+                else {
+                    connection.query("DELETE from images WHERE food_id = ? and file_id = ?",[food_id, file_id], (err, rows) => {
+                        if(err){
+                            response.json({
+                                status : 'fail',
+                                msg: 'Xóa ảnh không thành công'
+                            });
+                            return;
+                        }
+                        console.log(rows);
+                        console.log('delete success');
+                        response.json({
+                            status: "success",
+                            msg: "Xóa ảnh thành công"
+                        })
+                    })
+
+                }
+            }
+        );
+    }
+
+    function deleteVideoOnDrive(food_id, file_id, res) {
+        fs.readFile("routes/client_secret.json", (err, content) => {
+            if (err) return console.log('Error loading client secret file:', err);
+            // console.log(content);
+            // Authorize a client with credentials, then call the Google Drive API.
+            // authorize(JSON.parse(content), listFiles);
+            authorize(JSON.parse(content), deleteVideo, food_id, file_id, res);
+        });
+
+        // authorize(JSON.parse(file), addVideo, fileName, filePath, mimeType, foodid);
+    }
+
+    function deleteVideo(auth, food_id, file_id, response){
+        const drive = google.drive({ version: 'v3', auth });
+        drive.files.delete({
+                'fileId': file_id
+            }, function(err){
+                if(err){
+                    console.log('errors');
+                    console.log(err);
+                    response.json({
+                        status: 'fail',
+                        msg: 'Xóa video không thành công'
+                    });
+                }
+                else {
+                    connection.query("DELETE from videos WHERE food_id = ? and file_id = ?",[food_id, file_id], (err, rows) => {
+                        if(err){
+                            response.json({
+                                status : 'fail',
+                                msg: 'Xóa video không thành công'
+                            });
+                            return;
+                        }
+                        // console.log(rows);
+                        console.log('delete success');
+                        response.json({
+                            status: "success",
+                            msg: "Xóa video thành công"
+                        })
+                    })
+                }
+            }
+        )
+
+    }
+
+    function deleteAllInFood(file_id, index, len, food_id, response) {
+        fs.readFile("routes/client_secret.json", (err, content) => {
+            if (err) return console.log('Error loading client secret file:', err);
+            // console.log(content);
+            // Authorize a client with credentials, then call the Google Drive API.
+            // authorize(JSON.parse(content), listFiles);
+            authorize(JSON.parse(content), deleteAll, file_id, index, len, food_id, response);
+        });
+
+        // authorize(JSON.parse(file), addVideo, fileName, filePath, mimeType, foodid);
+    }
+
+    function deleteAll(auth, file_id, index, len, food_id, response){
+        const drive = google.drive({ version: 'v3', auth });
+        drive.files.delete({
+                'fileId': file_id
+            }, function(err){
+                if(err){
+                    console.log('errors');
+                    console.log(err);
+                    response.json({
+                        status: 'fail',
+                        error: err
+                    });
+                }
+                else {
+                    if(index === len){
+                        var query = "DELETE FROM foods WHERE foods.id = " + food_id;
+                        connection.query(query, (err, rows) => {
+                            if(err){
+                                throw err;
+                            }
+                            console.log("delete all success");
+                            response.json({
+                                status: 'success'
+                            });
+                        })
+                    }
+                }
+            }
+        )
+
+    }
+
+
     /**
      * Create an OAuth2 client with the given credentials, and then execute the
      * given callback function.
      * @param {Object} credentials The authorization client credentials.
      * @param {function} callback The callback to call with the authorized client.
      */
-    function authorize(credentials, callback, fileName, filePath,  mimeType, foodid, owner_id) {
-        // console.log("??????????????????????????" + Buffer.from(filePath));
+    function authorize(credentials, callback, param_1, param_2,  param_3, param_4, param_5) {
+        // console.log("??????????????????????????" + Buffer.from(param_2));
         const { client_secret, client_id, redirect_uris } = credentials.installed;
         // const { client_secret, client_id, redirect_uris } = credentials.web;
         const oAuth2Client = new OAuth2Client(client_id, client_secret, redirect_uris[0]);
@@ -462,7 +634,7 @@ module.exports = function(router, connection, upload){
         fs.readFile(TOKEN_PATH, (err, token) => {
             if (err) return getAccessToken(oAuth2Client, callback);
             oAuth2Client.setCredentials(JSON.parse(token));
-            callback(oAuth2Client, fileName, filePath,  mimeType, foodid, owner_id);
+            callback(oAuth2Client, param_1, param_2, param_3, param_4, param_5);
         });
     }
 
@@ -584,6 +756,7 @@ module.exports = function(router, connection, upload){
             }
         })
     };
+
 
 
 
