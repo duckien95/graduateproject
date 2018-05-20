@@ -64,12 +64,19 @@ module.exports = function(router, connection, upload){
                         }
 
                         let token = jwt.sign({ username : rows[0].username , password: newPassword }, 'keyboard cat 4 ever', { expiresIn: 86400 });
-                        console.log(token);
-                        res.json({
-                            success: true,
-                            err: null,
-                            token,
-                            user_id : userId
+                        // console.log(token);
+                        connection.query('SELECT * FROM users WHERE id = ?', userId, (err, row) => {
+                            if (err) {
+                                throw err
+                            }
+                            res.status(200).json({
+                                success: true,
+                                err: null,
+                                token,
+                                user: row[0]
+                                // user_id : rows.insertId
+                            });
+
                         })
                     }
                 );
@@ -84,14 +91,19 @@ module.exports = function(router, connection, upload){
                         }
 
                         let token = jwt.sign({ username : email , password: userId }, 'keyboard cat 4 ever', { expiresIn: 86400 });
+                        connection.query('SELECT * FROM users WHERE id = ?', userId, (err, row) => {
+                            if (err) {
+                                throw err
+                            }
+                            res.status(200).json({
+                                success: true,
+                                err: null,
+                                token,
+                                user: row[0]
+                                // user_id : rows.insertId
+                            });
 
-                        res.json({
-                            success: true,
-                            err: null,
-                            token,
-                            user_id : userId
                         })
-
                     }
                 );
             }
@@ -119,7 +131,8 @@ module.exports = function(router, connection, upload){
                     success: true,
                     err: null,
                     token,
-                    user_id : rows[0].id
+                    user: rows[0]
+                    // user_id : rows[0].id
                 });
             } else {
                 connection.query(
@@ -142,12 +155,21 @@ module.exports = function(router, connection, upload){
 
                         // console.log('line 71' + token);
 
-                        res.status(200).json({
-                            success: true,
-                            err: null,
-                            token,
-                            user_id : rows.insertId
-                        });
+                        connection.query('SELECT * FROM users WHERE id = ?', rows[0].insertId, (err, row) => {
+                            if (err) {
+                                throw err
+                            }
+                            res.status(200).json({
+                                success: true,
+                                err: null,
+                                token,
+                                user: row[0]
+                                // user_id : rows.insertId
+                            });
+
+                        })
+
+
                     }
                 );
 
@@ -195,7 +217,8 @@ module.exports = function(router, connection, upload){
                 success: true,
                 err: null,
                 token,
-                user_id : rows[0].id
+                user: rows[0]
+                // user_id : rows[0].id
             });
 
 

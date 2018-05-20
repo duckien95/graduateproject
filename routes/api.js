@@ -948,29 +948,98 @@ module.exports = function(router, connection){
 		});
 	});
 
+	function SequenceQueryDistance( rows, index, len, ListName, ArrayDistance, response){
+
+		if(index < len){
+			var row = rows[index];
+			row.address = row.street_name + ', ' + row.district_name + ', ' + row.city_name;
+			row.owner_name = row.username == null ? (row.first_name + ' ' + row.last_name) : row.username;
+			row.distance = ArrayDistance[index];
+
+			// return new Promise( (resolve, reject) => {
+				DatabaseQuery("SELECT img.file_id, img.status FROM images AS img WHERE img.food_id = ?", row.id)
+					.then( imageRes => {
+						if(imageRes !== undefined){
+							let list = {};
+							list.pending = [];
+							list.approve = [];
+							if(imageRes.length){
+								// console.log("leng > 0");
+								for (var i = 0; i < imageRes.length; i++) {
+									var img = imageRes[i];
+									if (img.status === "pending") {
+										list.pending.push(img.file_id);
+									} else {
+										list.approve.push(img.file_id);
+									}
+
+								}
+							}
+							row.imageUrl = list;
+						}
+
+						return DatabaseQuery('select usr.username, usr.first_name, usr.last_name, usr.id from users as usr inner join likes on likes.user_id = usr.id where likes.food_id = ?',row.id );
+					}).then(
+						res => {
+							if(res !== undefined){
+								let list = [];
+								if(res.length){
+									// console.log("leng > 0");
+
+									for (var i = 0; i < res.length; i++) {
+										if(res[i].username === null){
+
+										}
+										let user = res[i];
+										list.push({
+											user_id : user.id,
+											username : user.username === null ? (user.first_name + ' ' + user.last_name) : user.username
+										});
+									}
+								}
+								row.like = list;
+								ListName.push(row);
+							}
+						}
+					).then(
+						res => {
+							// console.log(res);
+							SequenceQueryDistance( rows, index + 1, len, ListName, ArrayDistance, response)
+						}
+					)
+		}
+		else{
+			response.json({
+				status: 'success',
+				foods : ListName
+			})
+		}
+
+	}
 
 
 	router.post("/food-search", function(req, res){
 
 		FOODSEARCH = [];
-		FOODDISTANCE = [];
 		console.log(req.body);
 		var { districtSelected, streetSelected, distanceSelected, category , detail, content, latitude, longitude } = req.body;
 		var city = 1 ;//default HANOI
-		console.log("city > 0" + (city > 0));
-		console.log("district " + districtSelected +  (districtSelected > 0));
-		console.log( "cate : " + category);
-		console.log("detail :" + detail);
-		console.log('content vs null ' + (content !== null));
-		if(content){
-			console.log('content not null');
-		}
-		var searchQuery = "SELECT fos.id FROM foods AS fos";
-		if(parseInt(city) > 0) searchQuery += " WHERE fos.city_id = " + city;
-		if(districtSelected > 0) searchQuery += " AND fos.district_id = " + districtSelected;
-		if(streetSelected > 0) searchQuery += " AND fos.street_id = " + streetSelected;
-		if(category > 0) searchQuery += " AND fos.category_id = " + category;
-		if(detail > 0) searchQuery += " AND fos.detail_category_id = " + detail;
+		// console.log("city > 0" + (city > 0));
+		// console.log("district " + districtSelected +  (districtSelected > 0));
+		// console.log( "cate : " + category);
+		// console.log("detail :" + detail);
+		console.log('content == null : ' + (content !== null));
+		// if(content){
+		// 	console.log('content not null');
+		// }
+		// var searchQuery = "SELECT fos.id FROM foods AS fos";
+		var searchQuery = queryAll;
+		searchQuery += " WHERE fos.status = ? ";
+		if(parseInt(city) > 0) searchQuery += " AND fos.city_id = " + city;
+		if(parseInt(districtSelected) > 0) searchQuery += " AND fos.district_id = " + districtSelected;
+		if(parseInt(streetSelected) > 0) searchQuery += " AND fos.street_id = " + streetSelected;
+		if(parseInt(category) > 0) searchQuery += " AND fos.category_id = " + category;
+		if(parseInt(detail) > 0) searchQuery += " AND fos.detail_category_id = " + detail;
 
 		// console.log(searchQuery);
 
@@ -979,11 +1048,12 @@ module.exports = function(router, connection){
 
 		if(content.length){
 			console.log('content is ' + content);
-			connection.query('SELECT id FROM foods WHERE MATCH(name, description, prices) AGAINST( ? IN NATURAL LANGUAGE MODE )', content, (err, rows) => {
+			connection.query(queryAll + ' WHERE MATCH(name, description, prices) AGAINST( ? IN NATURAL LANGUAGE MODE ) AND fos.status = ?', [content, 'approve'], (err, rows) => {
 				if (err) {
 					throw err;
 				}
-				if (!rows.length) {
+				// console.log(rows);
+				if(!rows.length){
 					res.json({
 						status: "error",
 						data: []
@@ -991,57 +1061,42 @@ module.exports = function(router, connection){
 					return;
 				}
 
-				let listId = [];
-				for (let i = 0; i < rows.length; i++) {
-					listId.push(rows[i].id);
-				}
-				for (let j = 0; j < FOODLIST.length; j++) {
-					if (listId.includes(FOODLIST[j].id)) {
-						// var foli = JSON.stringify(FOODLIST[j]);
-						var foli = FOODLIST[j];
-						console.log("foli " + j + ': ' + foli.street_name);
-						FOODSEARCH.push(foli);
-						destinations += (foli.street_number.length > 10) ? foli.street_number : (foli.street_number + "," + foli.street_name);
-						destinations += "," + foli.district_name + "," + foli.city_name + "|";
-					}
+				for (var j = 0; j < rows.length; j++) {
+					var row = rows[j];
+					destinations += (row.street_number.length > 10) ? row.street_number : (row.street_number + "," + row.street_name);
+					destinations += "," + row.district_name + "," + row.city_name + "|";
 				}
 
-				// console.log(origin);
-				// console.log(destinations);
 				var url = googleMapQuery(StandardString(origin), StandardString(destinations));
 				// console.log(url);
 				axios.get(url)
 				.then(response => {
 					var data = response.data.rows[0].elements;
-					// console.log(response.data.rows[0].elements);
-						if(Number(distanceSelected) < 0){
-							for (let i = 0; i < data.length; i++) {
-								FOODSEARCH[i].distance = data[i].distance.text;
+					var arrayDistance = [];
+					var listFoodId = [];
 
-								console.log(data[i].distance);
-							}
+					for (let i = 0; i < data.length; i++) {
+						// FOODSEARCH[i].distance = data[i].distance.text;
+						arrayDistance.push(data[i].distance.text);
+						listFoodId.push(rows[i].id);
+					}
 
-							res.json({
-								status: "success",
-								data: FOODSEARCH
-							});
+					var listIdQuery = '(';
+					for (var i = 0; i < listFoodId.length; i++) {
+						listIdQuery += listFoodId[i] + ',';
+					}
+					listIdQuery = listIdQuery.slice(0, -1);
+					listIdQuery += ')';
+
+					connection.query(queryAll + ' where fos.id in ' + listIdQuery, (err, foods) => {
+						if(err){
+							throw err;
 						}
-						else {
-							for (let i = 0; i < data.length; i++) {
 
-								var dist = data[i].distance.text.split(' ')[0];
-								if(Number(dist) < Number(distanceSelected)){
-									console.log("on");
-									FOODSEARCH[i].distance = data[i].distance.text;
-									FOODDISTANCE.push(FOODSEARCH[i]);
-								}
-							}
-							res.json({
-								status: "success",
-								data: FOODDISTANCE
-							});
-						}
+						SequenceQueryDistance(foods, 0, foods.length, FOODSEARCH, arrayDistance, res)
+					})
 				})
+
 				// distance.get({
 				// 	origin: StandardString(origin),
 				// 	destination: StandardString(destinations),
@@ -1049,42 +1104,13 @@ module.exports = function(router, connection){
 				// 	units: 'metric'
 				// },
 				// function(err, data) {
-				// 	console.log('line 412');
 				// 	if (err) return console.log(err);
-				// 	console.log('line 414');
-				// 	if(Number(distanceSelected) < 0){
-				// 		for (let i = 0; i < data.length; i++) {
-				// 			FOODSEARCH[i].distance = data[i].distance;
-				//
-				// 			console.log(data[i].distance);
-				// 		}
-				//
-				// 		res.json({
-				// 			status: "success",
-				// 			data: FOODSEARCH
-				// 		});
-				// 	}
-				// 	else {
-				// 		for (let i = 0; i < data.length; i++) {
-				//
-				// 			var dist = data[i].distance.split(' ')[0];
-				// 			if(Number(dist) < Number(distanceSelected)){
-				// 				console.log("on");
-				// 				FOODSEARCH[i].distance = data[i].distance;
-				// 				FOODDISTANCE.push(FOODSEARCH[i]);
-				// 			}
-				// 		}
-				// 		res.json({
-				// 			status: "success",
-				// 			data: FOODDISTANCE
-				// 		});
-				// 	}
 				// })
 			})
 		}
 		else {
-
-			connection.query(searchQuery,(err, rows) => {
+			// console.log(searchQuery);
+			connection.query(searchQuery,"approve", (err, rows) => {
 				if (err) {
 					throw err;
 				}
@@ -1096,19 +1122,11 @@ module.exports = function(router, connection){
 					});
 					return;
 				}
-				let listId = [];
-				for (let i = 0; i < rows.length; i++) {
-					listId.push(rows[i].id);
-				}
-				for (let j = 0; j < FOODLIST.length; j++) {
-					if (listId.includes(FOODLIST[j].id)) {
-						// var foli = JSON.stringify(FOODLIST[j]);
-						var foli = FOODLIST[j];
-						console.log("foli " + j + ': ' + foli.street_name);
-						FOODSEARCH.push(foli);
-						destinations += (foli.street_number.length > 10) ? foli.street_number : (foli.street_number + "," + foli.street_name);
-						destinations += "," + foli.district_name + "," + foli.city_name + "|";
-					}
+
+				for (var j = 0; j < rows.length; j++) {
+						var row = rows[j];
+						destinations += (row.street_number.length > 10) ? row.street_number : (row.street_number + "," + row.street_name);
+						destinations += "," + row.district_name + "," + row.city_name + "|";
 				}
 
 				var url = googleMapQuery(StandardString(origin), StandardString(destinations));
@@ -1116,40 +1134,64 @@ module.exports = function(router, connection){
 				axios.get(url)
 				.then(response => {
 					var data = response.data.rows[0].elements;
-					// console.log(response.data.rows[0].elements);
-						if(Number(distanceSelected) < 0){
-							for (let i = 0; i < data.length; i++) {
-								FOODSEARCH[i].distance = data[i].distance.text;
+					var arrayDistance = [];
+					var listFoodId = [];
 
-								console.log(data[i].distance);
-							}
-
-							res.json({
-								status: "success",
-								data: FOODSEARCH
-							});
+					if(Number(distanceSelected) < 0){
+						for (let i = 0; i < data.length; i++) {
+							// FOODSEARCH[i].distance = data[i].distance.text;
+							arrayDistance.push(data[i].distance.text);
+							listFoodId.push(rows[i].id);
 						}
-						else {
-							for (let i = 0; i < data.length; i++) {
-
-								var dist = data[i].distance.text.split(' ')[0];
-								if(Number(dist) < Number(distanceSelected)){
-									console.log("on");
-									FOODSEARCH[i].distance = data[i].distance.text;
-									FOODDISTANCE.push(FOODSEARCH[i]);
-								}
+					}
+					else {
+						for (let i = 0; i < data.length; i++) {
+							var dist = data[i].distance.text.split(' ')[0];
+							if(Number(dist) < Number(distanceSelected)){
+								arrayDistance.push(data[i].distance.text);
+								listFoodId.push(rows[i].id);
 							}
-							res.json({
-								status: "success",
-								data: FOODDISTANCE
-							});
 						}
+					}
+
+					var listIdQuery = '(';
+					for (var i = 0; i < listFoodId.length; i++) {
+						listIdQuery += listFoodId[i] + ',';
+					}
+					listIdQuery = listIdQuery.slice(0, -1);
+					listIdQuery += ')';
+
+					connection.query(queryAll + ' where fos.id in ' + listIdQuery, (err, foods) => {
+						if(err){
+							throw err;
+						}
+
+						SequenceQueryDistance(foods, 0, foods.length, FOODSEARCH, arrayDistance, res)
+					})
 				})
 			})
 
 		};
 
 	});
+
+	router.get('/query-in', function(req, res) {
+		var list = [38, 40];
+		var listIdQuery = '(';
+		for (var i = 0; i < list.length; i++) {
+			listIdQuery += list[i] + ',';
+		}
+		listIdQuery = listIdQuery.slice(0, -1);
+		listIdQuery += ')';
+		// str = '(39,45)';
+		console.log(str);
+		connection.query('select * from foods where id in ' + str, (err, rows) => {
+			console.log(rows);
+			res.json({
+				data: rows
+			})
+		})
+	})
 
 	function SequenceCategory(index, len,  CATEGORY, FOODCATEGORYLIST){
 		if(index < len){
@@ -1250,45 +1292,63 @@ module.exports = function(router, connection){
 		var maxNearDistance = 3;
 		var origin = req.params.place;
 		var food_id = req.params.food_id;
+		// console.log("food_id : " + food_id);
 		var destinations = "";
-		for (var i = 0; i < FOODLIST.length; i++) {
-			var foli = FOODLIST[i];
-			destinations += (foli.street_number.length > 10) ? foli.street_number : (foli.street_number + "," + foli.street_name);
-			destinations += "," + foli.district_name + "," + foli.city_name + "|";
-			// destinations += foli.street_number + "," + foli.street_name + "," + foli.district_name + "," + foli.city_name + "|";
-
-		}
-		// console.log(origin);
-		// console.log(destinations);
-		var url = googleMapQuery(StandardString(origin), StandardString(destinations));
-
-		console.log(url);
-		axios.get(url)
-		.then(response => {
-			var data = response.data.rows[0].elements;
-			console.log(data);
-			for (let i = 0; i < data.length; i++) {
-				var distance = data[i].distance.text;
-				if(Number(distance.split(" ")[0]) < maxNearDistance){
-					var foli = FOODLIST[i];
-					foli.distance = distance;
-					if(Number(foli.id) !== Number(food_id)){
-						// console.log('foodlist.id = ' + foli.id);
-						NEARBY.push(foli);
-					}
-
-				}
-				// console.log(data[i].distance);
+		console.log('hello');
+		connection.query(queryAll + " WHERE fos.status = ? and fos.id <> ? " ,["approve", food_id], (err, rows) => {
+			if (err) {
+				console.log('errorssss');
+				throw err;
+			}
+			if(!rows.length){
+				console.log(rows);
+				console.log('error');
+				// console.log('rows = ' + rows.length);
+				res.json({
+					status: "error",
+					data: []
+				});
+				return;
 			}
 
-			// console.log(FOODSEARCH);
+			for (var j = 0; j < rows.length; j++) {
+					var row = rows[j];
+					destinations += (row.street_number.length > 10) ? row.street_number : (row.street_number + "," + row.street_name);
+					destinations += "," + row.district_name + "," + row.city_name + "|";
+			}
 
-			res.json({
-				status: "success",
-				data: NEARBY
-			});
-			// console.log(response.data.rows[0].elements);
+			var url = googleMapQuery(StandardString(origin), StandardString(destinations));
+			// console.log(url);
+			axios.get(url)
+			.then(response => {
+				var data = response.data.rows[0].elements;
+				var arrayDistance = [];
+				var listFoodId = [];
 
+				for (let i = 0; i < data.length; i++) {
+					// FOODSEARCH[i].distance = data[i].distance.text;
+					var distance = data[i].distance.text.split(" ")[0];
+					if(Number(distance) < maxNearDistance){
+						arrayDistance.push(data[i].distance.text);
+						listFoodId.push(rows[i].id);
+					}
+				}
+
+				var listIdQuery = '(';
+				for (var i = 0; i < listFoodId.length; i++) {
+					listIdQuery += listFoodId[i] + ',';
+				}
+				listIdQuery = listIdQuery.slice(0, -1);
+				listIdQuery += ')';
+
+				connection.query(queryAll + ' where fos.id in ' + listIdQuery, (err, foods) => {
+					if(err){
+						throw err;
+					}
+
+					SequenceQueryDistance(foods, 0, foods.length, NEARBY, arrayDistance, res)
+				})
+			})
 		})
 	});
 
@@ -1321,111 +1381,49 @@ module.exports = function(router, connection){
 		})
 	})
 
-	router.get('/food-like/:userid', function(req, res){
-		connection.query('SELECT food_id FROM likes WHERE user_id = ?',req.params.userid,(err, rows) => {
-			if(err) throw err;
-			var data = [];
-			let listId = [];
-			for (let i = 0; i < rows.length; i++) {
-				listId.push(rows[i].food_id);
+	function getListFood(query, params, ListName, res){
+		connection.query(query,params,(err, rows) => {
+			if (err) {
+				throw err;
 			}
-			console.log(listId);
-			for (let j = 0; j < FOODLIST.length; j++) {
-				if (listId.includes(FOODLIST[j].id)) {
-					data.push(FOODLIST[j]);
-				}
+			if (!rows.length) {
+				res.json({
+					status: "error",
+					data: []
+				});
+				return;
 			}
-
-			res.json({
-				status: 'success',
-				data: data
-			})
+			else {
+				SequenceQuery(rows, 0, rows.length, ListName, res);
+			}
 		})
+	}
+
+	router.get('/food-like/:userid', function(req, res){
+		var FOODLIKE = [];
+		var queryLike = queryAll + " INNER JOIN likes ON fos.id = likes.food_id AND likes.user_id = ?";
+		getListFood(queryLike, req.params.userid, FOODLIKE, res);
 	})
 
 	router.get('/food-favorite/:userid', function(req, res){
-		connection.query('SELECT food_id FROM favorites WHERE user_id = ?',req.params.userid,(err, rows) => {
-			if(err) throw err;
-			var data = [];
-			let listId = [];
-			for (let i = 0; i < rows.length; i++) {
-				listId.push(rows[i].food_id);
-			}
-			console.log(listId);
-			for (let j = 0; j < FOODLIST.length; j++) {
-				if (listId.includes(FOODLIST[j].id)) {
-					data.push(FOODLIST[j]);
-				}
-			}
-
-			res.json({
-				status: 'success',
-				data: data
-			})
-		})
+		var FOODFAVORITE = [];
+		var queryFav = queryAll + " INNER JOIN favorites AS fav ON fos.id = fav.food_id AND fav.user_id = ?";
+		getListFood(queryFav, req.params.userid, FOODFAVORITE, res);
 	})
 
 	router.get('/food-post/:userid', function(req, res){
 		var FOODPOST = [];
 		queryPost = queryAll + " WHERE owner_id = ? ";
+		getListFood(queryPost, req.params.userid, FOODPOST, res);
 
-		connection.query(queryPost, req.params.userid, (err, rows) => {
-				if (err) {
-					throw err;
-				}
-				if (!rows.length) {
-					res.json({
-						status: "error",
-						data: []
-					});
-					return;
-				}
-				else {
-					SequenceQuery(rows, 0, rows.length, FOODPOST, res);
-				}
-		})
-		// connection.query('SELECT id FROM foods WHERE owner_id = ?',req.params.userid,(err, rows) => {
-		// 	if(err) throw err;
-		// 	var data = [];
-		// 	let listId = [];
-		// 	for (let i = 0; i < rows.length; i++) {
-		// 		listId.push(rows[i].id);
-		// 	}
-		// 	console.log(listId);
-		// 	for (let j = 0; j < FOODLIST.length; j++) {
-		// 		if (listId.includes(FOODLIST[j].id)) {
-		// 			data.push(FOODLIST[j]);
-		// 		}
-		// 	}
-		//
-		// 	res.json({
-		// 		status: 'success',
-		// 		data: data
-		// 	})
-		// })
 	})
 
 
 
 	router.get("/food/:id", function (req, res){
-		// console.log(req.params.id);
-		// console.log(FOODLIST[3].id === Number(req.params.id));
-		// // console.log(FOODLIST[3].id);
-		//
-		// for (let j = 0; j < FOODLIST.length; j++) {
-		// 	if ( Number(req.params.id) === FOODLIST[j].id) {
-		// 		// console.log(req.params.id === FOODLIST[j].id);
-		// 		res.status(200).json({
-		// 			status: "success",
-		// 			data: FOODLIST[j]
-		// 		})
-		// 		res.end();
-		// 	}
-		// }
-
 		var foodData = [];
 		var foodId = req.params.id;
-		console.log(req.params.id);
+		// console.log(req.params.id);
 		var query = "SELECT fos.*,cate.cate_name, rest.restaurant_name, usr.username,str.street_name, str.district_name, str.city_name FROM foods AS fos";
 		// var query = "SELECT fos.*,cate.cate_name, rest.restaurant_name, detail.detail_name, usr.username,str.street_name, str.district_name, str.city_name FROM foods AS fos";
 		query += " INNER JOIN users AS usr ON fos.owner_id = usr.id";
@@ -1551,36 +1549,6 @@ module.exports = function(router, connection){
 					SequenceQuery(rows, 0, rows.length, FOODAPPROVE, res);
 				}
 		})
-		// connection.query('SELECT id FROM foods WHERE status = ?', 'approve', (err, rows) => {
-		// 	if (err) {
-		// 		throw err;
-		// 	}
-		// 	if (!rows.length) {
-		// 		res.json({
-		// 			status: "error",
-		// 			data: []
-		// 		});
-		// 		return;
-		// 	}
-		//
-		// 	let listId = [];
-		// 	for (let i = 0; i < rows.length; i++) {
-		// 		listId.push(rows[i].id);
-		// 	}
-		// 	for (let j = 0; j < FOODLIST.length; j++) {
-		// 		if (listId.includes(FOODLIST[j].id)) {
-		// 			// var foli = JSON.stringify(FOODLIST[j]);
-		// 			var foli = FOODLIST[j];
-		// 			console.log("foli " + j + ': ' + foli.street_name);
-		// 			FOODAPPROVE.push(foli);
-		// 		}
-		// 	}
-		//
-		// 	res.json({
-		// 		status: 'success',
-		// 		foods : FOODAPPROVE
-		// 	})
-		// });
 	})
 
 	router.get("/food-pending", function(req, res){
