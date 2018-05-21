@@ -538,7 +538,7 @@ module.exports = function(router, connection){
 
 
 
-		var queryAll = "SELECT fos.*,cate.cate_name, rest.restaurant_name, usr.username, usr.first_name, usr.last_name, str.street_name, str.district_name, str.city_name FROM foods AS fos";
+	var queryAll = "SELECT fos.*, cate.cate_name, rest.restaurant_name, usr.username, usr.first_name, usr.last_name, str.street_name, str.district_name, str.city_name FROM foods AS fos";
 	// var queryAll = "SELECT fos.*,cate.cate_name, rest.restaurant_name, detail.detail_name, usr.username, usr.first_name, usr.last_name, str.street_name, str.district_name, str.city_name FROM foods AS fos";
 	queryAll += " INNER JOIN users AS usr ON fos.owner_id = usr.id";
 	queryAll += " INNER JOIN restaurants AS rest ON fos.restaurant_id = rest.restaurant_id";
@@ -1024,15 +1024,7 @@ module.exports = function(router, connection){
 		console.log(req.body);
 		var { districtSelected, streetSelected, distanceSelected, category , detail, content, latitude, longitude } = req.body;
 		var city = 1 ;//default HANOI
-		// console.log("city > 0" + (city > 0));
-		// console.log("district " + districtSelected +  (districtSelected > 0));
-		// console.log( "cate : " + category);
-		// console.log("detail :" + detail);
-		console.log('content == null : ' + (content !== null));
-		// if(content){
-		// 	console.log('content not null');
-		// }
-		// var searchQuery = "SELECT fos.id FROM foods AS fos";
+
 		var searchQuery = queryAll;
 		searchQuery += " WHERE fos.status = ? ";
 		if(parseInt(city) > 0) searchQuery += " AND fos.city_id = " + city;
@@ -1118,7 +1110,7 @@ module.exports = function(router, connection){
 					// console.log('rows = ' + rows.length);
 					res.json({
 						status: "error",
-						data: []
+						foods: []
 					});
 					return;
 				}
@@ -1175,23 +1167,7 @@ module.exports = function(router, connection){
 
 	});
 
-	router.get('/query-in', function(req, res) {
-		var list = [38, 40];
-		var listIdQuery = '(';
-		for (var i = 0; i < list.length; i++) {
-			listIdQuery += list[i] + ',';
-		}
-		listIdQuery = listIdQuery.slice(0, -1);
-		listIdQuery += ')';
-		// str = '(39,45)';
-		console.log(str);
-		connection.query('select * from foods where id in ' + str, (err, rows) => {
-			console.log(rows);
-			res.json({
-				data: rows
-			})
-		})
-	})
+
 
 	function SequenceCategory(index, len,  CATEGORY, FOODCATEGORYLIST){
 		if(index < len){
@@ -1261,28 +1237,37 @@ module.exports = function(router, connection){
 	router.get("/food-category/:id", function(req, res){
 		var categoryId = req.params.id;
 		// console.log(categoryId);
-		var query = "SELECT fos.id FROM foods AS fos WHERE fos.category_id = " + categoryId;
-		connection.query(query,(err, rows) => {
-			if (err) {
-				throw err;
-			}
-			let listId = [];
-			let data = [];
-			for (let i = 0; i < rows.length; i++) {
-				listId.push(rows[i].id);
-			}
+		// var query = "SELECT fos.id FROM foods AS fos WHERE fos.category_id = " + categoryId;
+		var FoodByCategory = [];
+		var queryCate = queryAll + "  WHERE fos.category_id = ? and status = ?";
+		getListFood(queryCate, [categoryId, 'approve'], FoodByCategory, res);
 
-			for (let j = 0; j < FOODLIST.length; j++) {
-				if (listId.includes(FOODLIST[j].id)) {
-					data.push(FOODLIST[j])
-				}
-			}
+	})
+
+	router.get('/query-in', function(req, res) {
+		var list = [38, 40];
+		var listIdQuery = '(';
+		for (var i = 0; i < list.length; i++) {
+			listIdQuery += list[i] + ',';
+		}
+		listIdQuery = listIdQuery.slice(0, -1);
+		listIdQuery += ')';
+		listIdQuery = '(' + 40 + ')';
+		// str = '(39,45)';
+		console.log(listIdQuery);
+		// connection.query('select * from foods where id <> ? and status = ?', [83, 'approve'], (err, rows) => {
+		// 	console.log(rows);
+		// 	res.json({
+		// 		data: rows
+		// 	})
+		// })
+		var food_id = 83;
+		connection.query(queryAll + ' WHERE fos.id <> ? AND fos.status = ? ',[food_id, 'approve'], (err, rows) => {
+			console.log();
 			res.json({
-				status: "success",
-				data: data
-			});
-		});
-
+				data: rows
+			})
+		})
 	})
 
 
@@ -1294,16 +1279,11 @@ module.exports = function(router, connection){
 		var food_id = req.params.food_id;
 		// console.log("food_id : " + food_id);
 		var destinations = "";
-		console.log('hello');
-		connection.query(queryAll + " WHERE fos.status = ? and fos.id <> ? " ,["approve", food_id], (err, rows) => {
+		connection.query(queryAll + ' WHERE fos.id <> ? AND fos.status = ? ',[food_id, 'approve'], (err, rows) => {
 			if (err) {
-				console.log('errorssss');
 				throw err;
 			}
 			if(!rows.length){
-				console.log(rows);
-				console.log('error');
-				// console.log('rows = ' + rows.length);
 				res.json({
 					status: "error",
 					data: []
@@ -1334,20 +1314,32 @@ module.exports = function(router, connection){
 					}
 				}
 
-				var listIdQuery = '(';
-				for (var i = 0; i < listFoodId.length; i++) {
-					listIdQuery += listFoodId[i] + ',';
-				}
-				listIdQuery = listIdQuery.slice(0, -1);
-				listIdQuery += ')';
+				if(listFoodId.length){
 
-				connection.query(queryAll + ' where fos.id in ' + listIdQuery, (err, foods) => {
-					if(err){
-						throw err;
+					var listIdQuery = '(';
+					for (var i = 0; i < listFoodId.length; i++) {
+						listIdQuery += listFoodId[i] + ',';
 					}
+					listIdQuery = listIdQuery.slice(0, -1);
+					listIdQuery += ')';
 
-					SequenceQueryDistance(foods, 0, foods.length, NEARBY, arrayDistance, res)
-				})
+					connection.query(queryAll + ' where fos.id in ' + listIdQuery, (err, foods) => {
+						if(err){
+							console.log('errrrrrrrrrrrrrrr');
+							throw err;
+						}
+
+						SequenceQueryDistance(foods, 0, foods.length, NEARBY, arrayDistance, res)
+					});
+				}
+				else {
+					res.json({
+						status: 'success',
+						foods: []
+					})
+				}
+
+
 			})
 		})
 	});
@@ -1562,7 +1554,7 @@ module.exports = function(router, connection){
 				if (!rows.length) {
 					res.json({
 						status: "error",
-						data: []
+						foods: []
 					});
 					return;
 				}

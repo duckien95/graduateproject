@@ -25,6 +25,22 @@ module.exports = function(router, connection, upload){
         })
     });
 
+    router.post('/set-avatar', function (req, res) {
+        // console.log(req.body);
+        const {food_id, file_id } = req.body;
+        connection.query('UPDATE foods SET avatar = ? WHERE id = ?', [file_id, food_id], (err, row) => {
+            if (err) {
+                res.json({
+                    status: 'fail'
+                })
+                res.end();
+            }
+            res.json({
+                status: 'success'
+            })
+
+        })
+    })
 
     router.post('/dislike', function(req, res){
         console.log(req.body);
@@ -92,8 +108,7 @@ module.exports = function(router, connection, upload){
             // console.log(listFileId[i]);
             deleteAllInFood(listFileId[i], i, len - 1, food_id, res);
         }
-        var query = "DELETE FROM foods WHERE foods.id = " + req.params.id;
-
+        // var query = "DELETE FROM foods WHERE foods.id = " + req.params.id;
         // connection.query(query, (err, rows) => {
         //     if(err){
         //         throw err;
