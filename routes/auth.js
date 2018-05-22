@@ -276,14 +276,20 @@ module.exports = function(router, connection, upload){
 
                         let token = jwt.sign({ username : data.username , password: data.password }, 'keyboard cat 4 ever', { expiresIn: 3600 });
 
-                        console.log(token);
+                        // console.log(token);
 
-                        res.status(200).json({
-                            success: true,
-                            err: null,
-                            token,
-                            user_id : rows.insertId
-                        });
+                        connection.query('SELECT * FROM users WHERE id = ?', rows.insertId, (err, row) => {
+                            if (err) {
+                                throw err
+                            }
+                            res.status(200).json({
+                                success: true,
+                                err: null,
+                                token,
+                                user: row[0]
+                                // user_id : rows.insertId
+                            });
+                        })
                     }
                 );
 

@@ -956,57 +956,35 @@ module.exports = function(router, connection){
 			row.owner_name = row.username == null ? (row.first_name + ' ' + row.last_name) : row.username;
 			row.distance = ArrayDistance[index];
 
-			// return new Promise( (resolve, reject) => {
-				DatabaseQuery("SELECT img.file_id, img.status FROM images AS img WHERE img.food_id = ?", row.id)
-					.then( imageRes => {
-						if(imageRes !== undefined){
-							let list = {};
-							list.pending = [];
-							list.approve = [];
-							if(imageRes.length){
+			DatabaseQuery('select usr.username, usr.first_name, usr.last_name, usr.id from users as usr inner join likes on likes.user_id = usr.id where likes.food_id = ?',row.id )
+				.then(
+					res => {
+						if(res !== undefined){
+							let list = [];
+							if(res.length){
 								// console.log("leng > 0");
-								for (var i = 0; i < imageRes.length; i++) {
-									var img = imageRes[i];
-									if (img.status === "pending") {
-										list.pending.push(img.file_id);
-									} else {
-										list.approve.push(img.file_id);
-									}
 
+								for (var i = 0; i < res.length; i++) {
+									if(res[i].username === null){
+
+									}
+									let user = res[i];
+									list.push({
+										user_id : user.id,
+										username : user.username === null ? (user.first_name + ' ' + user.last_name) : user.username
+									});
 								}
 							}
-							row.imageUrl = list;
+							row.like = list;
+							ListName.push(row);
 						}
-
-						return DatabaseQuery('select usr.username, usr.first_name, usr.last_name, usr.id from users as usr inner join likes on likes.user_id = usr.id where likes.food_id = ?',row.id );
-					}).then(
-						res => {
-							if(res !== undefined){
-								let list = [];
-								if(res.length){
-									// console.log("leng > 0");
-
-									for (var i = 0; i < res.length; i++) {
-										if(res[i].username === null){
-
-										}
-										let user = res[i];
-										list.push({
-											user_id : user.id,
-											username : user.username === null ? (user.first_name + ' ' + user.last_name) : user.username
-										});
-									}
-								}
-								row.like = list;
-								ListName.push(row);
-							}
-						}
-					).then(
-						res => {
-							// console.log(res);
-							SequenceQueryDistance( rows, index + 1, len, ListName, ArrayDistance, response)
-						}
-					)
+					}
+				).then(
+					res => {
+						// console.log(res);
+						SequenceQueryDistance( rows, index + 1, len, ListName, ArrayDistance, response)
+					}
+				)
 		}
 		else{
 			response.json({
@@ -1220,18 +1198,6 @@ module.exports = function(router, connection){
 
 	router.get("/food/category-list", function(req, res){
 
-		// console.log(FOODCATEGORYLIST);
-		// console.log(CATEGORY);
-		var i = 0;
-		var len = CATEGORY.length;
-		// console.log(CATEGORY[i].cate_id);
-		SequenceCategory(0, len, CATEGORY, FOODCATEGORYLIST);
-		res.json({
-			status: "success",
-			data: FOODCATEGORYLIST
-		});
-
-
 	})
 
 	router.get("/food-category/:id", function(req, res){
@@ -1240,7 +1206,7 @@ module.exports = function(router, connection){
 		// var query = "SELECT fos.id FROM foods AS fos WHERE fos.category_id = " + categoryId;
 		var FoodByCategory = [];
 		var queryCate = queryAll + "  WHERE fos.category_id = ? and status = ?";
-		getListFood(queryCate, [categoryId, 'approve'], FoodByCategory, res);
+		getListFood(queryCate, [categoryId, 'approve'], res);
 
 	})
 
@@ -1325,8 +1291,11 @@ module.exports = function(router, connection){
 
 					connection.query(queryAll + ' where fos.id in ' + listIdQuery, (err, foods) => {
 						if(err){
-							console.log('errrrrrrrrrrrrrrr');
-							throw err;
+							res.json({
+								status: 'errors',
+								foods: []
+							});
+							return;
 						}
 
 						SequenceQueryDistance(foods, 0, foods.length, NEARBY, arrayDistance, res)
@@ -1373,42 +1342,62 @@ module.exports = function(router, connection){
 		})
 	})
 
-	function getListFood(query, params, ListName, res){
+	function getListFood(query, params, res){
 		connection.query(query,params,(err, rows) => {
 			if (err) {
-				throw err;
+				// throw err;
+				res.json({
+					status: "error",
+					foods: []
+				});
+				return;
 			}
 			if (!rows.length) {
 				res.json({
 					status: "error",
-					data: []
+					foods: []
 				});
 				return;
 			}
-			else {
-				SequenceQuery(rows, 0, rows.length, ListName, res);
-			}
+			res.json({
+				status: 'success',
+				foods: rows
+			})
+			// else {
+			//
+			// 	SequenceQuery(rows, 0, rows.length, ListName, res);
+			// }
 		})
 	}
 
 	router.get('/food-like/:userid', function(req, res){
-		var FOODLIKE = [];
+		// var FOODLIKE = [];
 		var queryLike = queryAll + " INNER JOIN likes ON fos.id = likes.food_id AND likes.user_id = ?";
-		getListFood(queryLike, req.params.userid, FOODLIKE, res);
+		// getListFood(queryLike, req.params.userid, FOODLIKE, res);
+		getListFood(queryLike, req.params.userid, res);
 	})
 
 	router.get('/food-favorite/:userid', function(req, res){
-		var FOODFAVORITE = [];
 		var queryFav = queryAll + " INNER JOIN favorites AS fav ON fos.id = fav.food_id AND fav.user_id = ?";
-		getListFood(queryFav, req.params.userid, FOODFAVORITE, res);
+		getListFood(queryFav, req.params.userid, res);
 	})
 
 	router.get('/food-post/:userid', function(req, res){
-		var FOODPOST = [];
-		queryPost = queryAll + " WHERE owner_id = ? ";
-		getListFood(queryPost, req.params.userid, FOODPOST, res);
+		var queryPost = queryAll + " WHERE owner_id = ? ";
+		getListFood(queryPost, req.params.userid, res);
 
 	})
+
+	router.get('/food-approve', function(req, res) {
+		var FOODAPPROVE = [];
+		queryApprove = queryAll + " WHERE fos.status = ? ";
+		getListFood(queryApprove, 'approve', res);
+	})
+
+	router.get("/food-pending", function(req, res){
+		var queryPending = queryAll + " WHERE fos.status = ? ";
+		getListFood(queryPending, 'pending', res);
+	});
 
 
 
@@ -1507,63 +1496,21 @@ module.exports = function(router, connection){
 		var FOODS = [];
 		connection.query(queryAll,(err, rows) => {
 			if (err) {
-				throw err;
+				res.json({
+					status: "error",
+					foods: []
+				});
 			}
-			SequenceQuery( rows, 0, rows.length, FOODS, res);
+			else {
+				SequenceQuery( rows, 0, rows.length, FOODS, res);
+			}
+
 
 		});
 
-		// res.status(200).json({
-		// 	status: 'success',
-		// 	foods : FOODLIST
-		// });
-
-
-
 	});
 
-	router.get('/food-approve', function(req, res) {
-		var FOODAPPROVE = [];
-		queryApprove = queryAll + " WHERE fos.status = ? ";
 
-		connection.query(queryApprove, 'approve', (err, rows) => {
-				if (err) {
-					throw err;
-				}
-				if (!rows.length) {
-					res.json({
-						status: "error",
-						data: []
-					});
-					return;
-				}
-				else {
-					SequenceQuery(rows, 0, rows.length, FOODAPPROVE, res);
-				}
-		})
-	})
-
-	router.get("/food-pending", function(req, res){
-		var FOODPENDING = [];
-		queryPending = queryAll + " WHERE fos.status = ? ";
-
-		connection.query(queryPending, 'pending', (err, rows) => {
-				if (err) {
-					throw err;
-				}
-				if (!rows.length) {
-					res.json({
-						status: "error",
-						foods: []
-					});
-					return;
-				}
-				else {
-					SequenceQuery(rows, 0, rows.length, FOODPENDING, res);
-				}
-		})
-
-	});
 
 	router.post("/add-comment", function(req, res){
 		// console.log(req.body);

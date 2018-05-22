@@ -103,22 +103,27 @@ module.exports = function(router, connection, upload){
     router.post('/delete', function(req, res){
         const { food_id, listFileId } = req.body;
         // console.log(req.body);
+
         var len = listFileId.length;
-        for (var i = 0; i < len; i++) {
-            // console.log(listFileId[i]);
-            deleteAllInFood(listFileId[i], i, len - 1, food_id, res);
+        if(len){
+            for (var i = 0; i < len; i++) {
+                deleteAllInFood(listFileId[i], i, len - 1, food_id, res);
+            }
         }
-        // var query = "DELETE FROM foods WHERE foods.id = " + req.params.id;
-        // connection.query(query, (err, rows) => {
-        //     if(err){
-        //         throw err;
-        //     }
-        //     console.log(rows);
-        //     res.json({
-        //         status: "success",
-        //         msg: "Xoá thành công"
-        //     })
-        // })
+        else {
+            var query = "DELETE FROM foods WHERE foods.id = " + food_id;
+            connection.query(query, (err, rows) => {
+                if(err){
+                    res.json({
+                        status: 'fail'
+                    });
+                    return;
+                }
+                res.json({
+                    status: 'success'
+                });
+            })
+        }
     })
 
     function DatabaseQuery(query, args){
