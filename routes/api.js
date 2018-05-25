@@ -335,12 +335,16 @@ module.exports = function(router, connection){
 		if(index < len){
 			var resp = res[index];
 			return new Promise( (resolve, reject) => {
-				DatabaseQuery("SELECT fos.id, fos.name FROM foods AS fos where fos.restaurant_id = ?", resp.restaurant_id)
+				DatabaseQuery("SELECT fos.id, fos.name, fos.street_number FROM foods AS fos where fos.restaurant_id = ?", resp.restaurant_id)
 				.then(
 					result => {
 						// console.log('result of index ' + res.length);
 						// console.log(result);
 						let list = {};
+						list.city_name = resp.city_name;
+						list.district_name = resp.district_name;
+						list.street_name = resp.street_name;
+						list.street_number = result[0].street_number;
 						list.address = resp.street_name + ', ' + resp.district_name + ', ' + resp.city_name;
 						// list.push();
 						list.food_in_address = [];
@@ -995,6 +999,78 @@ module.exports = function(router, connection){
 
 	}
 
+	function getListBySequenceQuery(query, params, ListName, res){
+		connection.query(query, params, (err, rows) => {
+			if (err) {
+				res.json({
+					status: "error",
+					foods: []
+				});
+				return;
+			}
+			// console.log(rows);
+			if(!rows.length){
+				res.json({
+					status: "error",
+					foods: []
+				});
+				return;
+			}
+
+			SequenceQuery( rows, 0, rows.length, ListName, res);
+		})
+	}
+
+	router.post('/admin/food-search', function(req, res) {
+		console.log(req.body);
+		var ADMINFOODS = [];
+		const {districtSelected, category, content, status} =  req.body;
+
+		var searchQuery = queryAll;
+		searchQuery += " WHERE fos.city_id = 1";
+		if(status.length) searchQuery += " AND fos.status = " + "'" + status + "'";
+		if(parseInt(districtSelected) > 0) searchQuery += " AND fos.district_id = " + districtSelected;
+		if(parseInt(category) > 0) searchQuery += " AND fos.category_id = " + category;
+
+		if(content.length){
+			connection.query(queryAll + ' WHERE MATCH(name, description, prices) AGAINST( ? IN NATURAL LANGUAGE MODE )', [content], (err, rows) => {
+				if (err) {
+					throw err;
+				}
+				// console.log(rows);
+				if(!rows.length){
+					res.json({
+						status: "error",
+						foods: []
+					});
+					return;
+				}
+
+				SequenceQuery( rows, 0, rows.length, ADMINFOODS, res);
+			})
+		}
+		else {
+			console.log(searchQuery);
+			getListBySequenceQuery(searchQuery, [], ADMINFOODS, res)
+			// connection.query(searchQuery,(err, rows) => {
+			// 	if (err) {
+			// 		throw err;
+			// 	}
+			// 	console.log(rows);
+			// 	// console.log(rows);
+			// 	if(!rows.length){
+			// 		res.json({
+			// 			status: "error",
+			// 			foods: []
+			// 		});
+			// 		return;
+			// 	}
+			//
+			// 	SequenceQuery( rows, 0, rows.length, ADMINFOODS, res);
+			// })
+		}
+	})
+
 
 	router.post("/food-search", function(req, res){
 
@@ -1388,10 +1464,24 @@ module.exports = function(router, connection){
 
 	})
 
+	router.get('/admin/food-approve', function(req, res) {
+		var FOODAPPROVE = [];
+		queryApprove = queryAll + " WHERE fos.status = ? ";
+		getListBySequenceQuery(queryApprove, 'approve', FOODAPPROVE, res);
+
+	})
+
 	router.get('/food-approve', function(req, res) {
 		var FOODAPPROVE = [];
 		queryApprove = queryAll + " WHERE fos.status = ? ";
 		getListFood(queryApprove, 'approve', res);
+	})
+
+	router.get('/admin/food-pending', function(req, res) {
+		var FOODPENDING = [];
+		queryApprove = queryAll + " WHERE fos.status = ? ";
+		getListBySequenceQuery(queryApprove, 'pending', FOODPENDING, res);
+
 	})
 
 	router.get("/food-pending", function(req, res){
