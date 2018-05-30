@@ -27,6 +27,22 @@ module.exports = function(router, connection, upload){
 	    res.send('You are authenticated'); //Sending some response when authenticated
 	});
 
+    router.post('/delete/:user_id', function(req, res) {
+        const {user_id} = req.params;
+        connection.query('DELETE FROM users WHERE id = ?', user_id, (err, row) => {
+            if (err) {
+                res.json({
+                    status: 'errors'
+                });
+                return;
+            }
+            console.log(row);
+            res.json({
+                status: 'success'
+            })
+        })
+    })
+
     router.post('/edit-user', (req, res) => {
         console.log(req.body);
         const { userId, firstname, lastname, email, oldPassword, newPassword, confirmPassword} = req.body;

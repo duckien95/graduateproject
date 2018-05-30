@@ -266,15 +266,17 @@ module.exports = function(router, connection){
 	router.post('/change-permission/:userid/:permiss', function(req, res) {
 		const { userid, permiss } = req.params;
 		console.log(req.params);
-		console.log(userid);
-		console.log(permiss);
+
 		connection.query('update users set type = ? where id = ?',
 			[permiss, userid],
 			(err, row) => {
 				if (err) {
-					throw err;
+					res.json({
+						status : 'fail'
+					});
+					return;
 				}
-				res.status(200).json({
+				res.json({
 					status : 'success'
 				})
 			}
@@ -282,6 +284,48 @@ module.exports = function(router, connection){
 	})
 
 	var queryRestaurant = 'select distinct(res.restaurant_name) from restaurants as res';
+	router.post('/restaurant/update-name', function(req, res){
+		const { restaurant_name, new_res_name } = req.body;
+		console.log(req.body);
+		DatabaseQuery('SELECT restaurant_id FROM restaurants WHERE restaurant_name = ?', restaurant_name)
+		.then(
+			resp => {
+				var listIdQuery = '(';
+				for (var i = 0; i < resp.length; i++) {
+					listIdQuery += resp[i].restaurant_id + ',';
+				}
+				listIdQuery = listIdQuery.slice(0, -1);
+				listIdQuery += ')';
+				connection.query('UPDATE restaurants SET restaurant_name = ? WHERE restaurant_id IN ' + listIdQuery, new_res_name, (err, row) => {
+					if (err) {
+						res.json({
+							status: 'fail'
+						})
+						return;
+					}
+					res.json({
+						status: 'success'
+					})
+				})
+			}
+		)
+
+	});
+
+	router.post('/restaurant/delete/:restaurant_id', function(req, res){
+		const { restaurant_id } = req.params;
+		connection.query('DELETE FROM  restaurants as res WHERE res.restaurant_id = ?', restaurant_id, (err, row) => {
+			if (err) {
+				res.json({
+					status: 'fail'
+				})
+				return;
+			}
+			res.json({
+				status: 'success'
+			})
+		})
+	})
 
 	router.get('/restaurant-list', function(req, res){
 		var RESTAURANTS = [];
@@ -289,6 +333,7 @@ module.exports = function(router, connection){
 			if (err) {
 				throw err;
 			}
+			console.log(rows.length);
 
 			SequenceRestaurantQuery(rows, 0, rows.length, RESTAURANTS, res);
 
@@ -335,25 +380,31 @@ module.exports = function(router, connection){
 		if(index < len){
 			var resp = res[index];
 			return new Promise( (resolve, reject) => {
-				DatabaseQuery("SELECT fos.id, fos.name, fos.street_number FROM foods AS fos where fos.restaurant_id = ?", resp.restaurant_id)
+				var restaurant_id =  resp.restaurant_id;
+				DatabaseQuery("SELECT fos.id, fos.name, fos.street_number FROM foods AS fos where fos.restaurant_id = ?", restaurant_id)
 				.then(
 					result => {
 						// console.log('result of index ' + res.length);
 						// console.log(result);
 						let list = {};
+						list.restaurant_id = restaurant_id
 						list.city_name = resp.city_name;
 						list.district_name = resp.district_name;
 						list.street_name = resp.street_name;
-						list.street_number = result[0].street_number;
+
 						list.address = resp.street_name + ', ' + resp.district_name + ', ' + resp.city_name;
 						// list.push();
 						list.food_in_address = [];
-						for (var i = 0; i < result.length; i++) {
-							list.food_in_address.push({
-								food_id : result[i].id,
-								food_name :  result[i].name
-							})
+						if(result.length){
+							list.street_number = result[0].street_number;
+							for (var i = 0; i < result.length; i++) {
+								list.food_in_address.push({
+									food_id : result[i].id,
+									food_name :  result[i].name
+								})
+							}
 						}
+
 						// console.log(list);
 
 						row.foods.push(list);
@@ -371,6 +422,8 @@ module.exports = function(router, connection){
 			ListName.push(row);
 		}
 	}
+
+
 
 
 	// var RESTAURANTLIST = [];
