@@ -115,7 +115,7 @@ module.exports = function(router, connection, upload){
             connection.query(query, (err, rows) => {
                 if(err){
                     res.json({
-                        status: 'fail'
+                        status: 'errors'
                     });
                     return;
                 }
@@ -138,6 +138,7 @@ module.exports = function(router, connection, upload){
     }
 
     router.get('/approve/:id', function(req, res){
+        console.log(req.params);
 
         var food_id = req.params.id;
         DatabaseQuery("UPDATE images SET status = ? WHERE food_id = ?",['approve', food_id])
@@ -158,23 +159,13 @@ module.exports = function(router, connection, upload){
                     msg: "Bài viết đã được duyệt"
                 })
             }
+        ).catch(
+            err => {
+                res.json({
+                    status: 'errors'
+                })
+            }
         )
-        // connection.query("UPDATE images SET status = ? WHERE food_id = ?",['approve', req.params.id], (err, rows) => {
-        //     if(err){
-        //         throw err;
-        //     }
-        //     console.log(rows);
-        // })
-        // connection.query("UPDATE foods SET status = ? WHERE id = ?",['approve', req.params.id], (err, rows) => {
-        //     if(err){
-        //         throw err;
-        //     }
-        //     console.log(rows);
-        //     res.json({
-        //         status: "success",
-        //         msg: "Bài viết đã được duyệt"
-        //     })
-        // })
     })
 
     router.post('/image/approve/:food_id/:file_id', function(req, res){
@@ -611,10 +602,10 @@ module.exports = function(router, connection, upload){
                 'fileId': file_id
             }, function(err){
                 if(err){
-                    console.log('errors');
-                    console.log(err);
+                    // console.log('errors');
+                    // console.log(err);
                     response.json({
-                        status: 'fail',
+                        status: 'errors',
                         error: err
                     });
                 }

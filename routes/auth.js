@@ -127,18 +127,22 @@ module.exports = function(router, connection, upload){
     })
 
     router.post('/login-google-facebook', (req, res) => {
-        // console.log(req.body);
+        console.log(req.body);
         const {email, firstname, lastname, provider, token } = req.body;
 
         var data = req.body;
         // var bcryptPassword = bcrypt.hashSync(password);
 
-        connection.query("SELECT * FROM users WHERE email = ?",email, function(err, rows) {
+        connection.query("SELECT * FROM users WHERE token = ?", token, function(err, rows) {
             if (err){
-                console.log("err"+  err);
-                throw err;
+                console.log("errors");
+                res.json({
+                    success: false,
+                    token: null,
+                    msg: 'Đăng ký không thành công, vui lòng thực hiện lại'
+                });
             }
-            // console.log('line 42');
+            console.log('line 145');
             console.log(rows);
             if (rows.length) {
                 let token = jwt.sign({ username : data.email , password: data.token }, 'keyboard cat 4 ever', { expiresIn: 86400 });
@@ -151,6 +155,7 @@ module.exports = function(router, connection, upload){
                     // user_id : rows[0].id
                 });
             } else {
+
                 connection.query(
                     "INSERT INTO users (provider, first_name, last_name, email, token, type) VALUES (?,?,?,?,?,?)",
                     [ provider, firstname, lastname, email, token, 'normal' ],
@@ -161,7 +166,10 @@ module.exports = function(router, connection, upload){
                                 token: null,
                                 msg: 'Đăng ký không thành công, vui lòng thực hiện lại'
                             });
+                            console.log(err);
+                            // console.log(err);
                         }
+                        console.log(rows);
                         // console.log('line 67');
                         // console.log(rows);
 
@@ -171,9 +179,10 @@ module.exports = function(router, connection, upload){
 
                         // console.log('line 71' + token);
 
-                        connection.query('SELECT * FROM users WHERE id = ?', rows[0].insertId, (err, row) => {
+                        connection.query('SELECT * FROM users WHERE id = ?', rows.insertId, (err, row) => {
                             if (err) {
-                                throw err
+                                console.log(err);
+                                // throw err
                             }
                             res.status(200).json({
                                 success: true,

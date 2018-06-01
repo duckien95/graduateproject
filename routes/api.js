@@ -125,7 +125,9 @@ module.exports = function(router, connection){
 		}
 	);
 
-
+	// router.get('street-number', function(req, res) {
+	// 	connection.query()
+	// })
 
 	// cityid, districtid, streetid, streetname
 
@@ -283,6 +285,93 @@ module.exports = function(router, connection){
 		)
 	})
 
+	router.get('/img/list', function(req, res){
+		var queryImg = 'SELECT img.*, fos.name, fos.street_number, str.street_name, str.district_name, str.city_name ' +
+						'FROM images as img, foods as fos, streets as str WHERE img.food_id = fos.id AND fos.city_id =  str.city_id AND fos.district_id = str.district_id AND fos.street_id = str.street_id';
+		connection.query(queryImg, (err, rows) => {
+			if (err) {
+				console.log(err);
+				res.json({ status: 'error' });
+				return;
+			};
+
+			res.json({
+				status: 'success',
+				images: rows
+			})
+		})
+	})
+
+	router.post('/img/search', function(req, res){
+		const { foodSelected, cateSelected } = req.body;
+		console.log(req.body);
+		var query = 'SELECT img.*, fos.name, fos.street_number, str.street_name, str.district_name, str.city_name ' +
+						'FROM images as img, foods as fos, streets as str WHERE img.food_id = fos.id AND fos.city_id =  str.city_id AND fos.district_id = str.district_id AND fos.street_id = str.street_id';
+		if(Number(foodSelected) > 0) query += ' AND fos.id = ' + foodSelected;
+		if(Number(cateSelected) > 0) query += ' AND fos.category_id = ' + cateSelected;
+		connection.query(query, (err, row) => {
+			if (err) {
+				res.json({ status: 'error' })
+			}
+			// console.log(row);
+			if(!row.length){
+				res.json({
+					status: 'errors',
+					msg: 'Không tìm thấy kết quả phù hợp'
+				})
+			}
+			else {
+				res.json({
+					status: 'success',
+					images: row
+				})
+			}
+		})
+	})
+
+	router.get('/video/list', function(req, res){
+		var queryImg = 'SELECT vid.*, fos.name, fos.street_number, str.street_name, str.district_name, str.city_name ' +
+						'FROM videos as vid, foods as fos, streets as str WHERE vid.food_id = fos.id AND fos.city_id =  str.city_id AND fos.district_id = str.district_id AND fos.street_id = str.street_id';
+		connection.query(queryImg, (err, rows) => {
+			if (err) {
+				res.json({ status: 'error' });
+				return;
+			};
+
+			res.json({
+				status: 'success',
+				videos: rows
+			})
+		})
+	})
+
+	router.post('/video/search', function(req, res){
+		const { foodSelected, cateSelected } = req.body;
+		console.log(req.body);
+		var query = 'SELECT vid.*, fos.name, fos.street_number, str.street_name, str.district_name, str.city_name ' +
+						'FROM videos as vid, foods as fos, streets as str WHERE vid.food_id = fos.id AND fos.city_id =  str.city_id AND fos.district_id = str.district_id AND fos.street_id = str.street_id';
+		if(Number(foodSelected) > 0) query += ' AND fos.id = ' + foodSelected;
+		if(Number(cateSelected) > 0) query += ' AND fos.category_id = ' + cateSelected;
+		connection.query(query, (err, row) => {
+			if (err) {
+				res.json({ status: 'error' })
+			}
+			// console.log(row);
+			if(!row.length){
+				res.json({
+					status: 'errors',
+					msg: 'Món ăn hoặc loại món ăn chưa có video'
+				})
+			}
+			else {
+				res.json({
+					status: 'success',
+					videos: row
+				})
+			}
+		})
+	})
+
 	var queryRestaurant = 'select distinct(res.restaurant_name) from restaurants as res';
 	router.post('/restaurant/update-name', function(req, res){
 		const { restaurant_name, new_res_name } = req.body;
@@ -296,6 +385,7 @@ module.exports = function(router, connection){
 				}
 				listIdQuery = listIdQuery.slice(0, -1);
 				listIdQuery += ')';
+				console.log(listIdQuery);
 				connection.query('UPDATE restaurants SET restaurant_name = ? WHERE restaurant_id IN ' + listIdQuery, new_res_name, (err, row) => {
 					if (err) {
 						res.json({
@@ -314,16 +404,47 @@ module.exports = function(router, connection){
 
 	router.post('/restaurant/delete/:restaurant_id', function(req, res){
 		const { restaurant_id } = req.params;
-		connection.query('DELETE FROM  restaurants as res WHERE res.restaurant_id = ?', restaurant_id, (err, row) => {
+		// connection.query('SELECT fos.id FROM foods as fos WHERE fos.restaurant_id = ?', restaurant_id, (err, row))
+		connection.query('DELETE FROM  restaurants WHERE restaurant_id = ?', restaurant_id, (err, row) => {
 			if (err) {
 				res.json({
-					status: 'fail'
+					status: 'errors'
 				})
 				return;
 			}
 			res.json({
 				status: 'success'
 			})
+		})
+	})
+
+	router.post('/restaurant/search', function(req, res) {
+		console.log(req.body);
+		var RESTAURANTS = [];
+		const { districtSelected, category } = req.body;
+		var query =  'SELECT DISTINCT(res.restaurant_name) FROM restaurants as res INNER JOIN streets as str ON res.address_id = str.id ';
+		if(Number(districtSelected) > 0 ) query += ' AND str.district_id = ' + districtSelected;
+		if(Number(category) > 0) query += ' INNER JOIN foods as fos ON fos.restaurant_id = res.restaurant_id AND fos.category_id =  ' + category;
+
+		connection.query(query, (err, row) => {
+			if (err) {
+				console.log(err);
+				res.json({
+					status: 'errors'
+				})
+				return;
+			}
+			console.log(row.length);
+			// console.log(row);
+			if(row.length){
+				SequenceRestaurantQuery(row, 0, row.length, RESTAURANTS, res);
+			}
+			else {
+				res.json({
+					status: 'errors'
+				})
+			}
+
 		})
 	})
 
@@ -344,7 +465,7 @@ module.exports = function(router, connection){
 		// console.log('line 296');
 		if(index < len){
 			var row = rows[index];
-
+			// console.log(row);
 			// return new Promise( (resolve, reject) => {
 				DatabaseQuery('select res.*, str.street_name, str.district_name, str.city_name  from restaurants as res inner join streets as str on str.id = res.address_id where res.restaurant_name = ?',row.restaurant_name)
 				.then(
@@ -358,9 +479,10 @@ module.exports = function(router, connection){
 						// console.log('length of address = ' + res.length);
 						row.address = list;
 						row.foods = [];
-						ListFoodInRestaurant(res, 0, res.length, row, ListName);
+						ListFoodInRestaurant(res, 0, res.length, row, ListName, index, len, response);
 					}
-				).then(
+				)
+				.then(
 					res => {
 						SequenceRestaurantQuery(rows, index + 1, len, ListName, response)
 					}
@@ -369,25 +491,26 @@ module.exports = function(router, connection){
 
 		}
 		else {
-			response.json({
-				status : 'sucess',
-				data : ListName
-			})
+			// response.json({
+			// 	status : 'success',
+			// 	restaurants : ListName
+			// })
 		}
 	}
 
-	function ListFoodInRestaurant(res, index, len, row, ListName){
+	function ListFoodInRestaurant(res, index, len, row, ListName, prev_index, prev_len, response){
 		if(index < len){
 			var resp = res[index];
 			return new Promise( (resolve, reject) => {
 				var restaurant_id =  resp.restaurant_id;
+				console.log('restaurant_id = ' + restaurant_id);
 				DatabaseQuery("SELECT fos.id, fos.name, fos.street_number FROM foods AS fos where fos.restaurant_id = ?", restaurant_id)
 				.then(
 					result => {
 						// console.log('result of index ' + res.length);
-						// console.log(result);
+						console.log(result);
 						let list = {};
-						list.restaurant_id = restaurant_id
+						list.restaurant_id = restaurant_id;
 						list.city_name = resp.city_name;
 						list.district_name = resp.district_name;
 						list.street_name = resp.street_name;
@@ -403,23 +526,28 @@ module.exports = function(router, connection){
 									food_name :  result[i].name
 								})
 							}
+
 						}
-
-						// console.log(list);
-
 						row.foods.push(list);
 					}
 				).then(
 					result => {
 						// console.log('next TestREstaurant');
-						ListFoodInRestaurant(res, index + 1, len, row, ListName)
+						ListFoodInRestaurant(res, index + 1, len, row, ListName, prev_index, prev_len, response)
 					}
 				)
 			})
 		}
 		else{
-			// console.log('index = len in test');
+			// console.log('prev_index = ' +  prev_index);
+			// console.log('prev_len = ' + prev_len);
 			ListName.push(row);
+			if (prev_index == prev_len - 1 ) {
+				response.json({
+					status : 'success',
+					restaurants : ListName
+				})
+			}
 		}
 	}
 
@@ -1111,7 +1239,22 @@ module.exports = function(router, connection){
 			// 	}
 			// 	console.log(rows);
 			// 	// console.log(rows);
+			// 	if(!rows.length){			// connection.query(searchQuery,(err, rows) => {
+			// 	if (err) {
+			// 		throw err;
+			// 	}
+			// 	console.log(rows);
+			// 	// console.log(rows);
 			// 	if(!rows.length){
+			// 		res.json({
+			// 			status: "error",
+			// 			foods: []
+			// 		});
+			// 		return;
+			// 	}
+			//
+			// 	SequenceQuery( rows, 0, rows.length, ADMINFOODS, res);
+			// })
 			// 		res.json({
 			// 			status: "error",
 			// 			foods: []
@@ -1633,6 +1776,20 @@ module.exports = function(router, connection){
 				})
 			}
 		)
+	});
+
+	router.get('/list-food-name', function(req, res){
+		connection.query('SELECT id, name FROM foods', (err, rows) => {
+			if (err) {
+				res.json({ status: 'errors' });
+				return;
+			};
+
+			res.json({
+				status: 'success',
+				foods: rows
+			})
+		})
 	});
 
 	router.get("/food-list", function(req, res){
