@@ -248,24 +248,14 @@ module.exports = function(router, connection, upload){
         console.log(req.body);
         console.log(req.files);
         var foodId = req.params.id;
-        var restaurant_name = req.body.restaurant;
-        var owner_id = req.body.owner_id;
-        var restaurant_id;
-        var formData = req.body;
+        var { name, description, price, city, district, street, category, detail, owner_id, restaurant_name, restaurant_id, street_number } = req.body;
+        var addressId;
         var fileList = req.files;
-        var updateData = [];
-        Object.keys(formData).forEach(function(key) {
-            updateData.push(formData[key]);
-        });
-        updateData.pop();
-        updateData.pop();
-        console.log(updateData);
-        console.log("restaurant_name :" + restaurant_name);
 
-        function getRestaurantId() {
+        function UpdateRestaurantInfo() {
             return new Promise( ( resolve, reject ) => {
                 connection.query('select id from streets where city_id =  ? and district_id = ? and street_id = ?',
-                    [formData.city, formData.district, formData.street],
+                    [city, district, street],
                     function(err, rows){
                         if (err) {
                             throw err;
@@ -276,41 +266,62 @@ module.exports = function(router, connection, upload){
             });
         }
 
+        // .then(
+        //     res => {
+        //         addressId = res[0].id;
+        //         return new Promise( ( resolve, reject ) => {
+        //             connection.query('SELECT restaurant_id FROM restaurants  WHERE restaurant_name = ? and address_id = ? and street_number = ?', [restaurant_name, addressId, street_number], ( err, rows ) => {
+        //                 if ( err )
+        //                     return reject( err );
+        //                 resolve( rows );
+        //             })
+        //         });
+        //     }
+        // )
+        // .then(res =>{
+        //     console.log(res);
+        //
+        //     if(!res.length){
+        //
+        //         return new Promise( ( resolve, reject ) => {
+        //             connection.query('INSERT INTO restaurants (restaurant_name, street_number,  address_id) VALUES (?,?,?)',[restaurant_name, street_number, addressId], ( err, rows ) => {
+        //                 if ( err )
+        //                     return reject( err );
+        //                 resolve( rows.insertId );
+        //             })
+        //         });
+        //     }
+        //     else {
+        //         return res[0].restaurant_id;
+        //     }
+        // })
 
-        getRestaurantId()
+
+        UpdateRestaurantInfo()
         .then(
             res => {
+                // console.log(restaurant_id);
                 addressId = res[0].id;
-                return new Promise( ( resolve, reject ) => {
-                    connection.query('SELECT restaurant_id FROM restaurants  WHERE restaurant_name = ? and address_id = ?', [restaurant_name, addressId], ( err, rows ) => {
-                        if ( err )
-                            return reject( err );
-                        resolve( rows );
-                    })
-                });
+                return DatabaseQuery('SELECT restaurant_id FROM restaurants WHERE restaurant_name = ? AND address_id = ? AND street_number = ?', [restaurant_name, addressId, street_number])
             }
-        ).then(res =>{
-            console.log(res);
+        )
+        .then(
+            res => {
+                if(res.length){
+                    return new Promise( ( resolve, reject ) => {
+                        restaurant_id = res[0].restaurant_id;
+                        resolve(restaurant_id);
+                    });
 
-            if(!res.length){
+                }
+                else{
+                    return DatabaseQuery('UPDATE restaurants SET restaurant_name = ?, street_number = ?, address_id = ? WHERE restaurant_id = ? ', [ restaurant_name, street_number, addressId, restaurant_id ]);
+                }
+            }
+        )
+        .then(res => {
 
-                return new Promise( ( resolve, reject ) => {
-                    connection.query('INSERT INTO restaurants (restaurant_name, address_id) VALUES (?,?)',[restaurant_name, addressId], ( err, rows ) => {
-                        if ( err )
-                            return reject( err );
-                        resolve( rows.insertId );
-                    })
-                });
-            }
-            else {
-                return res[0].restaurant_id;
-            }
-        }).then(res => {
-            console.log("next then res = " + res);
-            updateData.push(res);
-            updateData.push(foodId);
-            // updateData.push('pending');
-            console.log(updateData);
+            var updateData = [ name, description, price, city, district, street, street_number, category, detail, restaurant_id, foodId ];
 
             updateFood(updateData, fileList);
 
@@ -320,10 +331,13 @@ module.exports = function(router, connection, upload){
                     data,
                     function(err, result, fields){
                         if (err) {
-                            throw err;
+                            response.json({
+                                status : "errors",
+                                msg : "update errors"
+                            });
+                            response.end();
                         }
-                        // console.log("add food");
-                        // console.log(result);
+
                         if(!fileList.length){
                             response.json({
                                 status : "success",
@@ -361,26 +375,15 @@ module.exports = function(router, connection, upload){
         // var file = req.files;
         console.log(req.body);
         console.log(req.files);
-        var owner_id = req.body.owner_id;
-        var restaurant_name = req.body.restaurant;
-        var restaurant_id;
-        var addressId;
-        var formData = req.body;
-        console.log('city = ' + formData.city);
+        const { name, description, price, city, district, street, street_number, category, detail, owner_id, restaurant_name } = req.body;
+
+        var addressId, restaurant_id, insertData = [];
         var fileList = req.files;
-        var insertData = [];
-        Object.keys(formData).forEach(function(key) {
-            insertData.push(formData[key]);
-        });
-        insertData.pop();
-        // console.log(insertData);
-        // console.log("restaurant_name :" + restaurant_name);
 
-
-        function getRestaurantId() {
+        function UpdateRestaurantInfo() {
             return new Promise( ( resolve, reject ) => {
                 connection.query('select id from streets where city_id =  ? and district_id = ? and street_id = ?',
-                    [formData.city, formData.district, formData.street],
+                    [city, district, street],
                     function(err, rows){
                         if (err) {
                             throw err;
@@ -392,12 +395,12 @@ module.exports = function(router, connection, upload){
         }
 
 
-        getRestaurantId()
+        UpdateRestaurantInfo()
         .then(
             res => {
                 addressId = res[0].id;
                 return new Promise( ( resolve, reject ) => {
-                    connection.query('SELECT restaurant_id FROM restaurants  WHERE restaurant_name = ? and address_id = ?', [restaurant_name, addressId], ( err, rows ) => {
+                    connection.query('SELECT restaurant_id FROM restaurants  WHERE restaurant_name = ? AND address_id = ? AND street_number = ?', [restaurant_name, addressId, street_number], ( err, rows ) => {
                         if ( err )
                             return reject( err );
                         resolve( rows );
@@ -408,9 +411,8 @@ module.exports = function(router, connection, upload){
             console.log(res);
 
             if(!res.length){
-
                 return new Promise( ( resolve, reject ) => {
-                    connection.query('INSERT INTO restaurants (restaurant_name, address_id) VALUES (?,?)',[restaurant_name, addressId], ( err, rows ) => {
+                    connection.query('INSERT INTO restaurants (restaurant_name, street_number, address_id) VALUES (?,?,?)',[restaurant_name, street_number, addressId], ( err, rows ) => {
                         if ( err )
                             return reject( err );
                         resolve( rows.insertId );
@@ -422,9 +424,10 @@ module.exports = function(router, connection, upload){
             }
         }).then(res => {
             // console.log("next then res = " + res);
-            insertData.push(res);
-            insertData.push('pending');
+            restaurant_id = res;
+
             console.log(insertData);
+            insertData = [ name, description, price,  city, district, street, street_number, category, detail, owner_id, restaurant_id, 'pending'];
 
             insertFood(insertData, fileList);
 
@@ -466,7 +469,7 @@ module.exports = function(router, connection, upload){
     function uploadVideo(fileName, filePath, mimeType, foodid, owner_id) {
         fs.readFile("routes/client_secret.json", (err, content) => {
             if (err) return console.log('Error loading client secret file:', err);
-            console.log(content);
+            // console.log(content);
             // Authorize a client with credentials, then call the Google Drive API.
             // authorize(JSON.parse(content), listFiles);
             authorize(JSON.parse(content), addVideo, fileName, filePath, mimeType, foodid, owner_id);

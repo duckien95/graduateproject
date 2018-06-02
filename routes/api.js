@@ -125,9 +125,25 @@ module.exports = function(router, connection){
 		}
 	);
 
-	// router.get('street-number', function(req, res) {
-	// 	connection.query()
-	// })
+	function updateStreetName(index, len, rows){
+		if(index < len){
+			var row = rows[index]
+			DatabaseQuery('update restaurants set street_number = ? where restaurant_id = ?', [row.street_number, row.restaurant_id])
+			.then(
+				updateStreetName(index + 1, len, rows)
+			)
+		}
+		else {
+			console.log('finish');
+		}
+
+	}
+
+	router.get('/street-number', function(req, res) {
+		connection.query('SELECT res.restaurant_id, fos.street_number from restaurants as res, foods as fos where fos.restaurant_id = res.restaurant_id', (err, rows)=> {
+			updateStreetName(0, rows.length, rows);
+		})
+	})
 
 	// cityid, districtid, streetid, streetname
 
@@ -514,6 +530,7 @@ module.exports = function(router, connection){
 						list.city_name = resp.city_name;
 						list.district_name = resp.district_name;
 						list.street_name = resp.street_name;
+						list.street_number = resp.street_number;
 
 						list.address = resp.street_name + ', ' + resp.district_name + ', ' + resp.city_name;
 						// list.push();
@@ -1277,11 +1294,11 @@ module.exports = function(router, connection){
 
 		var searchQuery = queryAll;
 		searchQuery += " WHERE fos.status = ? ";
-		if(parseInt(city) > 0) searchQuery += " AND fos.city_id = " + city;
-		if(parseInt(districtSelected) > 0) searchQuery += " AND fos.district_id = " + districtSelected;
-		if(parseInt(streetSelected) > 0) searchQuery += " AND fos.street_id = " + streetSelected;
-		if(parseInt(category) > 0) searchQuery += " AND fos.category_id = " + category;
-		if(parseInt(detail) > 0) searchQuery += " AND fos.detail_category_id = " + detail;
+		if(Number(city) > 0) searchQuery += " AND fos.city_id = " + city;
+		if(Number(districtSelected) > 0) searchQuery += " AND fos.district_id = " + districtSelected;
+		if(Number(streetSelected) > 0) searchQuery += " AND fos.street_id = " + streetSelected;
+		if(Number(category) > 0) searchQuery += " AND fos.category_id = " + category;
+		if(Number(detail) > 0) searchQuery += " AND fos.detail_category_id = " + detail;
 
 		// console.log(searchQuery);
 
