@@ -1340,20 +1340,32 @@ module.exports = function(router, connection){
 						listFoodId.push(rows[i].id);
 					}
 
-					var listIdQuery = '(';
-					for (var i = 0; i < listFoodId.length; i++) {
-						listIdQuery += listFoodId[i] + ',';
-					}
-					listIdQuery = listIdQuery.slice(0, -1);
-					listIdQuery += ')';
 
-					connection.query(queryAll + ' where fos.id in ' + listIdQuery, (err, foods) => {
-						if(err){
-							throw err;
+					if(listFoodId.length){
+						var listIdQuery = '(';
+						for (var i = 0; i < listFoodId.length; i++) {
+							listIdQuery += listFoodId[i] + ',';
 						}
+						listIdQuery = listIdQuery.slice(0, -1);
+						listIdQuery += ')';
 
-						SequenceQueryDistance(foods, 0, foods.length, FOODSEARCH, arrayDistance, res)
-					})
+						connection.query(queryAll + ' where fos.id in ' + listIdQuery, (err, foods) => {
+							if(err){
+								res.json({
+									status: 'errors',
+									foods: []
+								});
+								return;
+							}
+
+							SequenceQueryDistance(foods, 0, foods.length, FOODSEARCH, arrayDistance, res)
+						})
+					} else {
+						res.json({
+							status: 'success',
+							foods: []
+						})
+					}
 				})
 
 				// distance.get({
@@ -1413,20 +1425,46 @@ module.exports = function(router, connection){
 						}
 					}
 
-					var listIdQuery = '(';
-					for (var i = 0; i < listFoodId.length; i++) {
-						listIdQuery += listFoodId[i] + ',';
-					}
-					listIdQuery = listIdQuery.slice(0, -1);
-					listIdQuery += ')';
-
-					connection.query(queryAll + ' where fos.id in ' + listIdQuery, (err, foods) => {
-						if(err){
-							throw err;
+					if(listFoodId.length){
+						var listIdQuery = '(';
+						for (var i = 0; i < listFoodId.length; i++) {
+							listIdQuery += listFoodId[i] + ',';
 						}
+						listIdQuery = listIdQuery.slice(0, -1);
+						listIdQuery += ')';
 
-						SequenceQueryDistance(foods, 0, foods.length, FOODSEARCH, arrayDistance, res)
-					})
+						connection.query(queryAll + ' where fos.id in ' + listIdQuery, (err, foods) => {
+							if(err){
+								res.json({
+									status: 'errors',
+									foods: []
+								});
+								return;
+							}
+
+							SequenceQueryDistance(foods, 0, foods.length, FOODSEARCH, arrayDistance, res)
+						})
+					} else {
+						res.json({
+							status: 'success',
+							foods: []
+						})
+					}
+
+					// var listIdQuery = '(';
+					// for (var i = 0; i < listFoodId.length; i++) {
+					// 	listIdQuery += listFoodId[i] + ',';
+					// }
+					// listIdQuery = listIdQuery.slice(0, -1);
+					// listIdQuery += ')';
+					//
+					// connection.query(queryAll + ' where fos.id in ' + listIdQuery, (err, foods) => {
+					// 	if(err){
+					// 		throw err;
+					// 	}
+					//
+					// 	SequenceQueryDistance(foods, 0, foods.length, FOODSEARCH, arrayDistance, res)
+					// })
 				})
 			})
 

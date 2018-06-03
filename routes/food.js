@@ -102,6 +102,7 @@ module.exports = function(router, connection, upload){
 
     router.post('/delete', function(req, res){
         const { food_id, listFileId } = req.body;
+
         // console.log(req.body);
 
         var len = listFileId.length;
