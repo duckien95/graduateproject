@@ -1214,6 +1214,7 @@ module.exports = function(router, connection){
 								}
 							}
 							row.like = list;
+							row.likes = res.length;
 							ListName.push(row);
 						}
 					}
@@ -1267,7 +1268,7 @@ module.exports = function(router, connection){
 		if(parseInt(category) > 0) searchQuery += " AND fos.category_id = " + category;
 
 		if(content.length){
-			connection.query(queryAll + ' WHERE MATCH(name, description, prices) AGAINST( ? IN NATURAL LANGUAGE MODE )', [content], (err, rows) => {
+			connection.query(queryAll + ' WHERE MATCH(name, description) AGAINST( ? IN NATURAL LANGUAGE MODE )', [content], (err, rows) => {
 				if (err) {
 					throw err;
 				}
@@ -1564,7 +1565,7 @@ module.exports = function(router, connection){
 		// var query = "SELECT fos.id FROM foods AS fos WHERE fos.category_id = " + categoryId;
 		var FoodByCategory = [];
 		var queryCate = queryAll + "  WHERE fos.category_id = ? and status = ?";
-		getListFood(queryCate, [categoryId, 'approve'], res);
+		getListSequence(queryCate, [categoryId, 'approve'], res);
 
 	})
 
@@ -1721,11 +1722,50 @@ module.exports = function(router, connection){
 				status: 'success',
 				foods: rows
 			})
-			// else {
-			//
-			// 	SequenceQuery(rows, 0, rows.length, ListName, res);
-			// }
 		})
+	}
+
+	function getListSequence(query, params, res){
+		connection.query(query,params,(err, rows) => {
+			if (err) {
+				// throw err;
+				res.json({
+					status: "error",
+					foods: []
+				});
+				return;
+			}
+			if (!rows.length) {
+				res.json({
+					status: "error",
+					foods: []
+				});
+			}
+			else {
+				ListSequence(0, rows.length, rows, res)
+			}
+
+		})
+	}
+
+	function ListSequence(index, len, rows, response) {
+		if(index < len){
+			var row = rows[index];
+			DatabaseQuery('SELECT COUNT(id) FROM likes WHERE food_id = ?', row.id)
+			.then(
+				res => {
+					console.log();
+					rows[index].likes = res[0]['COUNT(id)'];
+					ListSequence(index + 1, len, rows, response)
+				}
+			)
+		}
+		else {
+			response.json({
+				status: 'success',
+				foods: rows
+			})
+		}
 	}
 
 	router.get('/food-like/:userid', function(req, res){
@@ -1756,7 +1796,8 @@ module.exports = function(router, connection){
 	router.get('/food-approve', function(req, res) {
 		var FOODAPPROVE = [];
 		queryApprove = queryAll + " WHERE fos.status = ? ";
-		getListFood(queryApprove, 'approve', res);
+		getListSequence(queryApprove, 'approve', res);
+		// getListFood(queryApprove, 'approve', res);
 	})
 
 	router.get('/admin/food-pending', function(req, res) {
@@ -1768,7 +1809,7 @@ module.exports = function(router, connection){
 
 	router.get("/food-pending", function(req, res){
 		var queryPending = queryAll + " WHERE fos.status = ? ";
-		getListFood(queryPending, 'pending', res);
+		getListSequence(queryPending, 'pending', res);
 	});
 
 
@@ -1847,15 +1888,12 @@ module.exports = function(router, connection){
 				}
 
 				foodData.listFileId = listFileId;
-
-				// foodData.videoUrl.push({
-				// 	pending : pending,
-				// 	approve : approve
-				// })
-
-
-				// foodData.videoUrl = list;
-
+				return DatabaseQuery('SELECT COUNT(id) FROM likes WHERE food_id = ?', foodId)
+			}
+		)
+		.then(
+			likes => {
+				foodData.likes = likes[0]['COUNT(id)'];
 				res.status(200).json({
 					status: "success",
 					data: foodData

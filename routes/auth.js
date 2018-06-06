@@ -260,14 +260,14 @@ module.exports = function(router, connection, upload){
         var data = req.body;
         var bcryptPassword = bcrypt.hashSync(password);
 
-        connection.query("SELECT * FROM users WHERE username = ? OR email = ? ",[username, email], function(err, rows) {
+        connection.query("SELECT * FROM users WHERE provider = ? AND username = ? OR provider = ? AND email =  ? ", ['local',username, 'local',email], function(err, rows) {
 			if (err){
                 console.log("err"+  err);
                 throw err;
             }
 
-            // console.log(rows);
-            let message = "Tên đăng nhập và email đều đã tồn tại";
+            console.log(rows);
+            let message = "Tên đăng nhập hoặc email đã tồn tại";
             if (rows.length) {
                 if(rows.length < 2){
                     if(rows[0].username){

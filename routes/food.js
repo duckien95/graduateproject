@@ -47,10 +47,13 @@ module.exports = function(router, connection, upload){
         const {user_id, food_id} = req.body;
         connection.query("DELETE FROM likes WHERE user_id = ? AND food_id = ?", [user_id, food_id], (err, rows) => {
             if (err) {
-                throw err;
+                res.json({
+                    status: 'errors'
+                });
+                return;
             }
             res.json({
-                msg : 'remove like'
+                status: 'success'
             })
             console.log("remove like success");
         })
@@ -61,10 +64,13 @@ module.exports = function(router, connection, upload){
         const {user_id, food_id} = req.body;
         connection.query("INSERT INTO likes(user_id, food_id) VALUES(?,?)", [user_id, food_id], (err, rows) => {
             if (err) {
-                throw err;
+                res.json({
+                    status: 'errors'
+                });
+                return;
             }
             res.json({
-                msg : 'add like'
+                status: 'success'
             })
             console.log("add like success");
         })
