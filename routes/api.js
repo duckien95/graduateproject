@@ -234,6 +234,9 @@ module.exports = function(router, connection){
 					cate_id : cates[i].id,
 					cate_name: cates[i].cate_name
 				});
+				// cateLits[i] = {
+				// 	cate_name: cates[i].cate_name
+				// };
 			}
 
 			CATEGORY = cateLits;
@@ -777,13 +780,14 @@ module.exports = function(router, connection){
 		console.log('start');
 		var FOST = [];
 
-		DatabaseQuery(queryAll,)
+		DatabaseQuery('select id, prices from foods')
 		.then(
 			rows => {
+				// res.json(rows);
 				// console.log('aaaaaaaaaaaaaaaaa');
-				TestSequence(rows, 0, rows.length, FOST, res);
 
 				// console.log('FOST = ' + FOST.length);
+				updateFoodPrice(0, rows.length, rows);
 
 			}
 
@@ -793,6 +797,38 @@ module.exports = function(router, connection){
 
 	});
 
+	function updateFoodPrice(index, len, rows) {
+		if(index < len){
+			var row = rows[index];
+			var allPrices = row.prices.split('-');
+			var min_price = allPrices[0].split('.').join('');
+			var max_price = 0;
+			if(allPrices[1]){
+				max_price = allPrices[1].split('.').join('');
+			}
+			console.log(min_price + '--------------' + max_price);
+			DatabaseQuery('update foods set min_price = ?, max_price = ? where id = ?', [min_price, max_price, row.id])
+			.then(
+				updateFoodPrice(index + 1, len, rows)
+			)
+
+		}
+
+	}
+
+	function updateStreetName(index, len, rows){
+		if(index < len){
+			var row = rows[index]
+			DatabaseQuery('update restaurants set street_number = ? where restaurant_id = ?', [row.street_number, row.restaurant_id])
+			.then(
+				updateStreetName(index + 1, len, rows)
+			)
+		}
+		else {
+			console.log('finish');
+		}
+
+	}
 
 	function TestSequence(rows, index, len, ListName, res){
 
@@ -1307,7 +1343,7 @@ module.exports = function(router, connection){
 
 		if(content.length){
 			console.log('content is ' + content);
-			connection.query(queryAll + ' WHERE MATCH(name, description, prices) AGAINST( ? IN NATURAL LANGUAGE MODE ) AND fos.status = ?', [content, 'approve'], (err, rows) => {
+			connection.query(queryAll + ' WHERE MATCH(name, description) AGAINST( ? IN NATURAL LANGUAGE MODE ) AND fos.status = ?', [content, 'approve'], (err, rows) => {
 				if (err) {
 					throw err;
 				}
@@ -1521,11 +1557,6 @@ module.exports = function(router, connection){
 			)
 		}
 	}
-
-
-	router.get("/food/category-list", function(req, res){
-
-	})
 
 	router.get("/food-category/:id", function(req, res){
 		var categoryId = req.params.id;

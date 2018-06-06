@@ -249,7 +249,7 @@ module.exports = function(router, connection, upload){
         console.log(req.body);
         console.log(req.files);
         var foodId = req.params.id;
-        var { name, description, price, city, district, street, category, detail, owner_id, restaurant_name, restaurant_id, street_number } = req.body;
+        var { name, description, min_price, max_price, city, district, street, category, detail, owner_id, restaurant_name, restaurant_id, street_number } = req.body;
         var addressId;
         var fileList = req.files;
 
@@ -259,7 +259,8 @@ module.exports = function(router, connection, upload){
                     [city, district, street],
                     function(err, rows){
                         if (err) {
-                            throw err;
+                            console.log('err');
+                            // throw err;
                         }
                         resolve(rows);
                     }
@@ -322,13 +323,13 @@ module.exports = function(router, connection, upload){
         )
         .then(res => {
 
-            var updateData = [ name, description, price, city, district, street, street_number, category, detail, restaurant_id, foodId ];
+            var updateData = [ name, description, min_price, max_price, city, district, street, street_number, category, detail, restaurant_id, foodId ];
 
             updateFood(updateData, fileList);
 
             function updateFood(data, fileList){
                 connection.query(
-                    'UPDATE foods SET name = ?, description = ?, prices = ?, city_id = ?, district_id = ?, street_id = ?, street_number = ?, category_id = ?, detail_category_id = ?, restaurant_id = ? WHERE id = ? ',
+                    'UPDATE foods SET name = ?, description = ?, min_price = ?, max_price = ?, city_id = ?, district_id = ?, street_id = ?, street_number = ?, category_id = ?, detail_category_id = ?, restaurant_id = ? WHERE id = ? ',
                     data,
                     function(err, result, fields){
                         if (err) {
@@ -376,7 +377,7 @@ module.exports = function(router, connection, upload){
         // var file = req.files;
         console.log(req.body);
         console.log(req.files);
-        const { name, description, price, city, district, street, street_number, category, detail, owner_id, restaurant_name } = req.body;
+        const { name, description, min_price, max_price, city, district, street, street_number, category, detail, owner_id, restaurant_name } = req.body;
 
         var addressId, restaurant_id, insertData = [];
         var fileList = req.files;
@@ -428,13 +429,13 @@ module.exports = function(router, connection, upload){
             restaurant_id = res;
 
             console.log(insertData);
-            insertData = [ name, description, price,  city, district, street, street_number, category, detail, owner_id, restaurant_id, 'pending'];
+            insertData = [ name, description, min_price, max_price,  city, district, street, street_number, category, detail, owner_id, restaurant_id, 'pending'];
 
             insertFood(insertData, fileList);
 
             function insertFood(data, fileList){
                 connection.query(
-                    'INSERT INTO foods (name, description, prices, city_id, district_id, street_id, street_number, category_id, detail_category_id, owner_id, restaurant_id, status ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)',
+                    'INSERT INTO foods (name, description, min_price, max_price, city_id, district_id, street_id, street_number, category_id, detail_category_id, owner_id, restaurant_id, status ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)',
                     data,
                     function(err, result, fields){
                         if (err) {
