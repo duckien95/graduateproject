@@ -2057,7 +2057,7 @@ module.exports = function(router, connection){
 				return DatabaseQuery("SELECT DISTINCT(id) FROM videos WHERE food_id = ? AND status = ? ", [row.id, 'pending']);
 			})
 			.then( videoRes => {
-					row.videoUrl = videoRes.length;
+					row.videos = videoRes.length;
 					return DatabaseQuery('select usr.username, usr.first_name, usr.last_name, usr.id from users as usr inner join likes on likes.user_id = usr.id where likes.food_id = ?',row.id );
 				}
 			).then(
