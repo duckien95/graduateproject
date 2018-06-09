@@ -404,7 +404,7 @@ module.exports = function(router, connection){
 				}
 				listIdQuery = listIdQuery.slice(0, -1);
 				listIdQuery += ')';
-				console.log(listIdQuery);
+				// console.log(listIdQuery);
 				connection.query('UPDATE restaurants SET restaurant_name = ? WHERE restaurant_id IN ' + listIdQuery, new_res_name, (err, row) => {
 					if (err) {
 						res.json({
@@ -776,45 +776,6 @@ module.exports = function(router, connection){
 		})
 	}
 
-	router.get("/testfood", function(req, res){
-		console.log('start');
-		var FOST = [];
-
-		DatabaseQuery('select id, prices from foods')
-		.then(
-			rows => {
-				// res.json(rows);
-				// console.log('aaaaaaaaaaaaaaaaa');
-
-				// console.log('FOST = ' + FOST.length);
-				updateFoodPrice(0, rows.length, rows);
-
-			}
-
-		)
-
-
-
-	});
-
-	function updateFoodPrice(index, len, rows) {
-		if(index < len){
-			var row = rows[index];
-			var allPrices = row.prices.split('-');
-			var min_price = allPrices[0].split('.').join('');
-			var max_price = 0;
-			if(allPrices[1]){
-				max_price = allPrices[1].split('.').join('');
-			}
-			console.log(min_price + '--------------' + max_price);
-			DatabaseQuery('update foods set min_price = ?, max_price = ? where id = ?', [min_price, max_price, row.id])
-			.then(
-				updateFoodPrice(index + 1, len, rows)
-			)
-
-		}
-
-	}
 
 	function updateStreetName(index, len, rows){
 		if(index < len){
@@ -1252,7 +1213,8 @@ module.exports = function(router, connection){
 				return;
 			}
 
-			SequenceQuery( rows, 0, rows.length, ListName, res);
+			// SequenceQuery( rows, 0, rows.length, ListName, res);
+			SequenceMediaInteractQuery( rows, 0, rows.length, ListName, res);
 		})
 	}
 
@@ -1281,7 +1243,8 @@ module.exports = function(router, connection){
 					return;
 				}
 
-				SequenceQuery( rows, 0, rows.length, ADMINFOODS, res);
+				// SequenceQuery( rows, 0, rows.length, ADMINFOODS, res);
+				SequenceMediaInteractQuery( rows, 0, rows.length, ADMINFOODS, res);
 			})
 		}
 		else {
@@ -2025,4 +1988,184 @@ module.exports = function(router, connection){
 			data: DETAIL_CATEGORY
 		})
 	})
+
+	router.get('/people', function(req, res){
+		const PEOPLE = [
+		      {id: 1, name: 'Luke Skywalker', height: 177, weight: 70},
+		      {id: 2, name: 'Darth Vader', height: 200, weight: 100},
+		      {id: 3, name: 'Han Solo', height: 185, weight: 85},
+		    ];
+		res.json(PEOPLE);
+	})
+
+	router.get("/admin/food-interactive", function(req, res) {
+		var FoodInteractive = [];
+		connection.query(queryAll, (err, rows) => {
+			// console.log(rows.length);
+			SequenceMediaInteractQuery( rows, 0, rows.length, FoodInteractive, res)
+		})
+	})
+
+
+	router.get("/admin/media-pending", function(req, res){
+		var listId = [];
+		var FoodShare = [];
+		// connection.query("SELECT DISTINCT(id) FROM images WHERE food_id = ? AND status = ? ", [52, 'pending'], (err, rows) => {
+		// 	console.log(rows.length);
+		// })
+		DatabaseQuery("SELECT DISTINCT(food_id) FROM images WHERE status = ?", 'pending')
+		.then(
+			result => {
+				if(result.length){
+					for (let i = 0; i < result.length; i++) {
+						listId.push(result[i].food_id);
+					}
+				}
+				// console.log(listId);
+				return	DatabaseQuery("SELECT DISTINCT(food_id) FROM videos WHERE status = ?", 'pending')
+			}
+		)
+		.then(
+			result => {
+				if(result.length){
+					for (let i = 0; i < result.length; i++) {
+						if(!listId.includes(result[i].food_id)){
+							listId.push(result[i].food_id);
+						}
+					}
+				}
+				var listIdQuery = arrangeWhereInQuery(listId);
+				connection.query(queryAll + ' WHERE fos.id IN ' + listIdQuery, (err, rows) => {
+					console.log(rows.length);
+					SequenceMediaInteractQuery( rows, 0, rows.length, FoodShare, res)
+				})
+
+			}
+		)
+	});
+
+	function SequenceMediaInteractQuery( rows, index, len, ListName, response){
+
+		if(index < len){
+			var row = rows[index];
+			row.address = row.street_name + ', ' + row.district_name + ', ' + row.city_name;
+			row.owner_name = row.username == null ? (row.first_name + ' ' + row.last_name) : row.username;
+
+			DatabaseQuery("SELECT DISTINCT(id) FROM images WHERE food_id = ? AND status = ? ", [row.id, 'pending'])
+			.then( imageRes => {
+				row.images = imageRes.length;
+				return DatabaseQuery("SELECT DISTINCT(id) FROM videos WHERE food_id = ? AND status = ? ", [row.id, 'pending']);
+			})
+			.then( videoRes => {
+					row.videoUrl = videoRes.length;
+					return DatabaseQuery('select usr.username, usr.first_name, usr.last_name, usr.id from users as usr inner join likes on likes.user_id = usr.id where likes.food_id = ?',row.id );
+				}
+			).then(
+				res => {
+					if(res !== undefined){
+						let list = [];
+						if(res.length){
+							for (var i = 0; i < res.length; i++) {
+								let user = res[i];
+								list.push({
+									user_id : user.id,
+									username : user.username === null ? (user.first_name + ' ' + user.last_name) : user.username
+								});
+							}
+						}
+						row.like = list;
+						// ListName.push(row);
+					}
+					return DatabaseQuery('select usr.username, usr.first_name, usr.last_name, usr.id from users as usr inner join favorites on favorites.user_id = usr.id where favorites.food_id = ?',row.id );
+				}
+			).then(
+				res => {
+					if(res !== undefined){
+						let list = [];
+						if(res.length){
+							// console.log("leng > 0");
+							for (var i = 0; i < res.length; i++) {
+								let user = res[i];
+								list.push({
+									user_id : user.id,
+									username : user.username === null ? (user.first_name + ' ' + user.last_name) : user.username
+								});
+							}
+						}
+						row.favorite = list;
+					}
+
+					return DatabaseQuery('select usr.username, usr.first_name, usr.last_name, usr.id from users as usr inner join comments as cmt on cmt.user_id = usr.id where cmt.food_id = ?',row.id );
+				}
+			).then(
+				res => {
+					if(res !== undefined){
+						let list = [];
+						if(res.length){
+							// console.log("leng > 0");
+							for (var i = 0; i < res.length; i++) {
+								let user = res[i];
+								list.push({
+									user_id : user.id,
+									username : user.username === null ? (user.first_name + ' ' + user.last_name) : user.username
+								});
+							}
+						}
+						row.comment = list;
+						ListName.push(row);
+					}
+				}
+			)
+			.then(
+				res => {
+					// console.log(res);
+					SequenceMediaInteractQuery( rows, index + 1, len, ListName, response)
+				}
+			)
+		}
+		else{
+			response.json({
+				status: 'success',
+				foods : ListName
+			})
+		}
+
+	}
+
+	function arrangeWhereInQuery(resp) {
+		var listIdQuery = '(';
+		for (var i = 0; i < resp.length; i++) {
+			listIdQuery += resp[i] + ',';
+		}
+		listIdQuery = listIdQuery.slice(0, -1);
+		listIdQuery += ')';
+		return listIdQuery;
+	}
+
+	// DatabaseQuery('select id, prices from foods')
+	// .then(
+	// 	rows => {
+	// 		updateFoodPrice(0, rows.length, rows);
+	// 	}
+	//
+	// )
+
+	function updateFoodPrice(index, len, rows) {
+		if(index < len){
+			var row = rows[index];
+			var allPrices = row.prices.split('-');
+			var min_price = allPrices[0].split('.').join('');
+			var max_price = 0;
+			if(allPrices[1]){
+				max_price = allPrices[1].split('.').join('');
+			}
+			console.log(min_price + '--------------' + max_price);
+			DatabaseQuery('update foods set min_price = ?, max_price = ? where id = ?', [min_price, max_price, row.id])
+			.then(
+				updateFoodPrice(index + 1, len, rows)
+			)
+
+		}
+
+	}
 }
