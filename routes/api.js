@@ -1147,54 +1147,6 @@ module.exports = function(router, connection){
 		});
 	});
 
-	function SequenceQueryDistance( rows, index, len, ListName, ArrayDistance, response){
-
-		if(index < len){
-			var row = rows[index];
-			row.address = row.street_name + ', ' + row.district_name + ', ' + row.city_name;
-			row.owner_name = row.username == null ? (row.first_name + ' ' + row.last_name) : row.username;
-			row.distance = ArrayDistance[index];
-
-			DatabaseQuery('select usr.username, usr.first_name, usr.last_name, usr.id from users as usr inner join likes on likes.user_id = usr.id where likes.food_id = ?',row.id )
-				.then(
-					res => {
-						if(res !== undefined){
-							let list = [];
-							if(res.length){
-								// console.log("leng > 0");
-
-								for (var i = 0; i < res.length; i++) {
-									if(res[i].username === null){
-
-									}
-									let user = res[i];
-									list.push({
-										user_id : user.id,
-										username : user.username === null ? (user.first_name + ' ' + user.last_name) : user.username
-									});
-								}
-							}
-							row.like = list;
-							row.likes = res.length;
-							ListName.push(row);
-						}
-					}
-				).then(
-					res => {
-						// console.log(res);
-						SequenceQueryDistance( rows, index + 1, len, ListName, ArrayDistance, response)
-					}
-				)
-		}
-		else{
-			response.json({
-				status: 'success',
-				foods : ListName
-			})
-		}
-
-	}
-
 	function getListBySequenceQuery(query, params, ListName, res){
 		connection.query(query, params, (err, rows) => {
 			if (err) {
@@ -1221,7 +1173,7 @@ module.exports = function(router, connection){
 	router.post('/admin/food-search', function(req, res) {
 		console.log(req.body);
 		var ADMINFOODS = [];
-		const {districtSelected, category, content, status} =  req.body;
+		const {districtSelected, category, content, status, min_price, max_price} =  req.body;
 
 		var searchQuery = queryAll;
 		searchQuery += " WHERE fos.city_id = 1";
@@ -1248,7 +1200,7 @@ module.exports = function(router, connection){
 			})
 		}
 		else {
-			console.log(searchQuery);
+			// console.log(searchQuery);
 			getListBySequenceQuery(searchQuery, [], ADMINFOODS, res)
 			// connection.query(searchQuery,(err, rows) => {
 			// 	if (err) {
@@ -1289,7 +1241,7 @@ module.exports = function(router, connection){
 
 		FOODSEARCH = [];
 		console.log(req.body);
-		var { districtSelected, streetSelected, distanceSelected, category , detail, content, latitude, longitude } = req.body;
+		var { districtSelected, streetSelected, distanceSelected, category , detail, content, latitude, longitude, min_price, max_price } = req.body;
 		var city = 1 ;//default HANOI
 
 		var searchQuery = queryAll;
@@ -1299,6 +1251,8 @@ module.exports = function(router, connection){
 		if(Number(streetSelected) > 0) searchQuery += " AND fos.street_id = " + streetSelected;
 		if(Number(category) > 0) searchQuery += " AND fos.category_id = " + category;
 		if(Number(detail) > 0) searchQuery += " AND fos.detail_category_id = " + detail;
+		if(Number(min_price) > 0) searchQuery += " AND fos.min_price >= " + min_price;
+		if(Number(max_price) > 0) searchQuery += " AND fos.min_price <= "+ max_price + " AND fos.max_price <= " + max_price;
 
 		// console.log(searchQuery);
 
@@ -1367,24 +1321,21 @@ module.exports = function(router, connection){
 						})
 					}
 				})
-
-				// distance.get({
-				// 	origin: StandardString(origin),
-				// 	destination: StandardString(destinations),
-				// 	mode: 'transit',
-				// 	units: 'metric'
-				// },
-				// function(err, data) {
-				// 	if (err) return console.log(err);
-				// })
 			})
 		}
 		else {
 			// console.log(searchQuery);
+			// connection.query(searchQuery, 'approve', (err, rows) => {
+			// 	console.log(rows.length);
+			// 	var arrayDistance = [];
+			// 	var FOODSEARCH = [];
+			// 	SequenceQueryDistance(rows, 0, rows.length, FOODSEARCH, arrayDistance, res)
+			// })
 			connection.query(searchQuery,"approve", (err, rows) => {
 				if (err) {
 					throw err;
 				}
+				// console.log(rows);
 				if(!rows.length){
 					// console.log('rows = ' + rows.length);
 					res.json({
@@ -1404,51 +1355,70 @@ module.exports = function(router, connection){
 				// console.log(url);
 				axios.get(url)
 				.then(response => {
-					var data = response.data.rows[0].elements;
+					// console.log(response.data.rows[0]);
 					var arrayDistance = [];
 					var listFoodId = [];
+					if(response.data.rows[0]!== undefined){
+						var data = response.data.rows[0].elements;
 
-					if(Number(distanceSelected) < 0){
-						for (let i = 0; i < data.length; i++) {
-							// FOODSEARCH[i].distance = data[i].distance.text;
-							arrayDistance.push(data[i].distance.text);
-							listFoodId.push(rows[i].id);
-						}
-					}
-					else {
-						for (let i = 0; i < data.length; i++) {
-							var dist = data[i].distance.text.split(' ')[0];
-							if(Number(dist) < Number(distanceSelected)){
+						if(Number(distanceSelected) < 0){
+							for (let i = 0; i < data.length; i++) {
+								// FOODSEARCH[i].distance = data[i].distance.text;
 								arrayDistance.push(data[i].distance.text);
 								listFoodId.push(rows[i].id);
 							}
 						}
-					}
-
-					if(listFoodId.length){
-						var listIdQuery = '(';
-						for (var i = 0; i < listFoodId.length; i++) {
-							listIdQuery += listFoodId[i] + ',';
+						else {
+							for (let i = 0; i < data.length; i++) {
+								var dist = data[i].distance.text.split(' ')[0];
+								if(Number(dist) < Number(distanceSelected)){
+									arrayDistance.push(data[i].distance.text);
+									listFoodId.push(rows[i].id);
+								}
+							}
 						}
-						listIdQuery = listIdQuery.slice(0, -1);
-						listIdQuery += ')';
 
+						if(listFoodId.length){
+							var listIdQuery = '(';
+							for (var i = 0; i < listFoodId.length; i++) {
+								listIdQuery += listFoodId[i] + ',';
+							}
+							listIdQuery = listIdQuery.slice(0, -1);
+							listIdQuery += ')';
+
+							connection.query(queryAll + ' where fos.id in ' + listIdQuery, (err, foods) => {
+								if(err){
+									res.json({
+										status: 'errors',
+										foods: []
+									});
+
+									return;
+								}
+
+								SequenceQueryDistance(foods, 0, foods.length, FOODSEARCH, arrayDistance, res)
+							})
+						} else {
+							res.json({
+								status: 'success',
+								foods: []
+							})
+						}
+					}
+					else {
 						connection.query(queryAll + ' where fos.id in ' + listIdQuery, (err, foods) => {
 							if(err){
 								res.json({
 									status: 'errors',
 									foods: []
 								});
+
 								return;
 							}
 
 							SequenceQueryDistance(foods, 0, foods.length, FOODSEARCH, arrayDistance, res)
 						})
-					} else {
-						res.json({
-							status: 'success',
-							foods: []
-						})
+						// SequenceQueryDistance(foods, 0, foods.length, FOODSEARCH, arrayDistance, res)
 					}
 
 					// var listIdQuery = '(';
@@ -1471,6 +1441,57 @@ module.exports = function(router, connection){
 		};
 
 	});
+
+
+	function SequenceQueryDistance( rows, index, len, ListName, ArrayDistance, response){
+
+		if(index < len){
+			var row = rows[index];
+			row.address = row.street_name + ', ' + row.district_name + ', ' + row.city_name;
+			row.owner_name = row.username == null ? (row.first_name + ' ' + row.last_name) : row.username;
+			row.distance = ArrayDistance[index];
+
+			DatabaseQuery('select usr.username, usr.first_name, usr.last_name, usr.id from users as usr inner join likes on likes.user_id = usr.id where likes.food_id = ?',row.id )
+				.then(
+					res => {
+						// console.log(res);
+						if(res !== undefined){
+							let list = [];
+							if(res.length){
+								// console.log("leng > 0");
+
+								for (var i = 0; i < res.length; i++) {
+									if(res[i].username === null){
+
+									}
+									let user = res[i];
+									list.push({
+										user_id : user.id,
+										username : user.username === null ? (user.first_name + ' ' + user.last_name) : user.username
+									});
+								}
+							}
+							row.like = list;
+							row.likes = res.length;
+							ListName.push(row);
+						}
+					}
+				).then(
+					res => {
+						// console.log(res);
+						SequenceQueryDistance( rows, index + 1, len, ListName, ArrayDistance, response)
+					}
+				)
+		}
+		else{
+			// console.log('success');
+			response.json({
+				status: 'success',
+				foods : ListName
+			})
+		}
+
+	}
 
 
 
@@ -1780,7 +1801,7 @@ module.exports = function(router, connection){
 	router.get("/food/:id", function (req, res){
 		var foodData = [];
 		var foodId = req.params.id;
-		// console.log(req.params.id);
+		console.log(foodId);
 		var query = "SELECT fos.*,cate.cate_name, rest.restaurant_name, usr.username,str.street_name, str.district_name, str.city_name FROM foods AS fos";
 		// var query = "SELECT fos.*,cate.cate_name, rest.restaurant_name, detail.detail_name, usr.username,str.street_name, str.district_name, str.city_name FROM foods AS fos";
 		query += " INNER JOIN users AS usr ON fos.owner_id = usr.id";
@@ -1897,6 +1918,44 @@ module.exports = function(router, connection){
 
 	});
 
+	router.get('/food-min-price', function(req, res) {
+		var PRICES = [];
+		connection.query('SELECT DISTINCT(min_price) FROM foods ORDER BY min_price ASC', (err, rows) => {
+			if(err) {
+				res.json({
+					status: "error",
+					prices: []
+				});
+			}
+
+			else {
+				res.json({
+					status: "success",
+					prices: rows
+				});
+			}
+		})
+	})
+
+	router.get('/food-max-price', function(req, res) {
+		var PRICES = [];
+		connection.query('SELECT DISTINCT(max_price) FROM foods WHERE max_price > 0 ORDER BY max_price ASC ', (err, rows) => {
+			if(err) {
+				res.json({
+					status: "error",
+					prices: []
+				});
+			}
+
+			else {
+				res.json({
+					status: "success",
+					prices: rows
+				});
+			}
+		})
+	})
+
 
 
 	router.post("/add-comment", function(req, res){
@@ -1915,6 +1974,23 @@ module.exports = function(router, connection){
 			}
 		)
 	});
+
+	router.post("/delete-comment", function(req, res){
+		// console.log(req.body);
+		const { comment_id } = req.body;
+		// INSERT INTO likes(user_id, food_id) VALUES(?,?)
+		connection.query('DELETE FROM comments WHERE id = ?', comment_id,
+			function(err, rows){
+				if (err) {
+					throw err;
+				}
+				res.json({
+					status :'success'
+				})
+			}
+		)
+	});
+
 	router.get('/comments/:food_id', function(req, res) {
 		connection.query('select * from comments where food_id  = ?',
 			req.params.food_id,
