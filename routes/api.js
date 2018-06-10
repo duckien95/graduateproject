@@ -1,5 +1,5 @@
-const GOOGLE_MAP_API_KEY = "AIzaSyDLV4DIm4y3o6Bd7GRR725pmocPgzE3zwE";
-// const GOOGLE_MAP_API_KEY = 'AIzaSyAPiN-8Q1QKqw4-tqwogebchry4_lIn97E';
+// const GOOGLE_MAP_API_KEY = "AIzaSyDLV4DIm4y3o6Bd7GRR725pmocPgzE3zwE";
+const GOOGLE_MAP_API_KEY = 'AIzaSyAPiN-8Q1QKqw4-tqwogebchry4_lIn97E';
 function googleMapQuery(origin, destination){
 	return "https://maps.googleapis.com/maps/api/distancematrix/json?units=metric"
 			+ "&origins=" + origin
