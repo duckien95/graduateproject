@@ -480,6 +480,83 @@ module.exports = function(router, connection){
 		});
 	})
 
+	router.get('/food-in-one-restaurant/:restaurant_name', function(req, res){
+		var restaurant_name = req.params.restaurant_name;
+		var FoodInOneRes = [], row = {};
+		DatabaseQuery('select res.*, str.street_name, str.district_name, str.city_name  from restaurants as res inner join streets as str on str.id = res.address_id where res.restaurant_name = ?',restaurant_name)
+		.then(
+			result => {
+				// console.log(result);
+				var list = [];
+				for (var i = 0; i < result.length; i++) {
+					list.push(result[i].street_name + ', ' + result[i].district_name + ', ' + result[i].city_name);
+				}
+				// console.log('line 313');
+				// console.log('length of address = ' + res.length);
+				FoodInOneRes.address = list;
+				FoodInOneRes.foods = [];
+				row.foods = [];
+				ListFoodInOneRes(result, 0, result.length, FoodInOneRes, res);
+			}
+		)
+	})
+
+	function ListFoodInOneRes(res, index, len, ListName, response){
+		// console.log('541');
+		// console.log(row);
+		if(index < len){
+			var resp = res[index];
+			// console.log(resp);
+			return new Promise( (resolve, reject) => {
+				var restaurant_id =  resp.restaurant_id;
+				// console.log('restaurant_id = ' + restaurant_id);
+				DatabaseQuery("SELECT *, (SELECT COUNT(likes.id) FROM (select * from foods where restaurant_id = ?) as fos left JOIN likes as likes ON likes.food_id = fos.id  GROUP BY likes.food_id ) as totalLike FROM foods WHERE restaurant_id = ?", [restaurant_id, restaurant_id])
+				.then(
+					result => {
+						// console.log('result of index ' + res.length);
+						// console.log(result);
+						let list = {};
+						list.restaurant_id = restaurant_id;
+						list.city_name = resp.city_name;
+						list.district_name = resp.district_name;
+						list.street_name = resp.street_name;
+						list.street_number = resp.street_number;
+
+						list.address = resp.street_name + ', ' + resp.district_name + ', ' + resp.city_name;
+						// list.push();
+						list.food_in_address = [];
+						if(result.length){
+							list.street_number = result[0].street_number;
+							for (var i = 0; i < result.length; i++) {
+								var fod = result[i];
+								list.food_in_address.push({
+									id : fod.id,
+									name :  fod.name,
+									min_price: fod.min_price,
+									max_price: fod.max_price,
+									likes: fod.totalLike
+								})
+							}
+
+						}
+						ListName.push(list);
+					}
+				).then(
+					result => {
+						// console.log('next TestREstaurant');
+						ListFoodInOneRes(res, index + 1, len, ListName, response)
+					}
+				)
+			})
+		}
+		else{
+			response.json({
+				status : 'success',
+				restaurants : ListName
+			})
+		}
+	}
+
 	function SequenceRestaurantQuery(rows, index, len, ListName, response){
 		// console.log('line 296');
 		if(index < len){
@@ -518,16 +595,18 @@ module.exports = function(router, connection){
 	}
 
 	function ListFoodInRestaurant(res, index, len, row, ListName, prev_index, prev_len, response){
+		// console.log('541');
+		// console.log(row);
 		if(index < len){
 			var resp = res[index];
 			return new Promise( (resolve, reject) => {
 				var restaurant_id =  resp.restaurant_id;
-				console.log('restaurant_id = ' + restaurant_id);
+				// console.log('restaurant_id = ' + restaurant_id);
 				DatabaseQuery("SELECT fos.id, fos.name, fos.street_number FROM foods AS fos where fos.restaurant_id = ?", restaurant_id)
 				.then(
 					result => {
 						// console.log('result of index ' + res.length);
-						console.log(result);
+						// console.log(result);
 						let list = {};
 						list.restaurant_id = restaurant_id;
 						list.city_name = resp.city_name;
@@ -1551,6 +1630,13 @@ module.exports = function(router, connection){
 		var queryCate = queryAll + "  WHERE fos.category_id = ? and status = ?";
 		getListSequence(queryCate, [categoryId, 'approve'], res);
 
+	})
+
+	router.get("/food-in-place/:category_id/:district_id/:city_id", function(req, res){
+		const { category_id, district_id, city_id } = req.params;
+		var foodInPlace = [];
+		var queryInPlace = queryAll + " WHERE fos.category_id = ? AND fos.district_id = ? AND fos.city_id = ?";
+		getListSequence(queryInPlace, [ category_id, district_id, city_id ], res);
 	})
 
 	router.get('/query-in', function(req, res) {

@@ -270,7 +270,8 @@ module.exports = function(router, connection, upload){
             let message = "Tên đăng nhập hoặc email đã tồn tại";
             if (rows.length) {
                 if(rows.length < 2){
-                    if(rows[0].username){
+                    if(rows[0].username === username){
+                        // console.log(rows[0]);
                         message = "Tên đăng nhập đã tồn tại"
                     }
                     else {
